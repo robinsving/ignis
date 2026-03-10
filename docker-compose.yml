@@ -1,0 +1,11 @@
+services:
+  ignis:
+    build:
+      context: .
+      args:
+        OBSIDIAN_VERSION: "1.8.9"
+    ports:
+      - "8082:8080"
+    volumes:
+      - ./vault:/vault
+    restart: unless-stopped

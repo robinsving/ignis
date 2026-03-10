@@ -40,18 +40,11 @@ app.use("/api/vault", vaultRoutes);
 app.use("/vault-files", express.static(config.vaultPath));
 
 // --- Static serving ---
-// Serve the built shim-loader.js
-app.use(
-  "/shim-loader.js",
-  express.static(path.join(__dirname, "..", "dist", "shim-loader.js")),
-);
+// dist/ has shim-loader.js + patched index.html (dev mode).
+// In Docker, these live inside the obsidian assets dir instead.
+app.use(express.static(path.join(__dirname, "..", "dist")));
 
-// Serve patched index.html at root
-app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "..", "dist", "index.html"));
-});
-
-// Serve obsidian assets
+// Serve obsidian assets (app.js, app.css, libs, fonts, etc.)
 app.use(express.static(config.obsidianAssetsPath));
 
 // --- Start ---
