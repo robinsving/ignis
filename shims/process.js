@@ -1,19 +1,16 @@
-// Shim for window.process
-// Obsidian checks process.platform, process.versions.electron, etc.
-
 export const processShim = {
-  platform: 'linux',
+  platform: "linux",
   versions: {
-    electron: '28.0.0',
-    node: '18.18.0',
-    chrome: '120.0.0.0',
+    electron: "28.0.0",
+    node: "18.18.0",
+    chrome: "120.0.0.0",
   },
   env: {},
-  cwd: () => '/',
+  cwd: () => "/",
   nextTick: (fn, ...args) => setTimeout(() => fn(...args), 0),
   argv: [],
-  type: 'renderer',
-  resourcesPath: '/',
+  type: "renderer",
+  resourcesPath: "/",
   stdout: { write: (s) => console.log(s) },
   stderr: { write: (s) => console.error(s) },
   on: () => {},

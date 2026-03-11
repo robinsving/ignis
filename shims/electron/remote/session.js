@@ -1,6 +1,3 @@
-// Shim for remote.session
-// Mostly no-op; Obsidian's use is minimal
-
 export const sessionShim = {
   defaultSession: {
     clearCache() {
@@ -12,7 +9,9 @@ export const sessionShim = {
     },
 
     setSpellCheckerLanguages(langs) {},
-    getSpellCheckerLanguages() { return []; },
+    getSpellCheckerLanguages() {
+      return [];
+    },
 
     on() {},
     once() {},

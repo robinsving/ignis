@@ -1,6 +1,3 @@
-// Shim for remote.nativeImage
-// Minimal stub  -  Obsidian's renderer-side usage is limited
-
 export const nativeImageShim = {
   createFromBuffer(buffer) {
     return {
@@ -8,7 +5,7 @@ export const nativeImageShim = {
       getSize: () => ({ width: 0, height: 0 }),
       toPNG: () => buffer || new Uint8Array(0),
       toJPEG: (quality) => buffer || new Uint8Array(0),
-      toDataURL: () => '',
+      toDataURL: () => "",
     };
   },
 

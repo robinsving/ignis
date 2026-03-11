@@ -1,6 +1,3 @@
-// Shim for remote.Menu and remote.MenuItem
-// Obsidian uses: Menu.buildFromTemplate, Menu.popup, Menu.setApplicationMenu
-
 export class menuShim {
   constructor() {
     this.items = [];
@@ -8,13 +5,12 @@ export class menuShim {
 
   static buildFromTemplate(template) {
     const menu = new menuShim();
-    menu.items = (template || []).map(item => new menuItemShim(item));
+    menu.items = (template || []).map((item) => new menuItemShim(item));
     return menu;
   }
 
   static setApplicationMenu(menu) {
-    // No native menu bar in browser  -  no-op
-    console.log('[shim:Menu] setApplicationMenu (stub)');
+    console.log("[shim:Menu] setApplicationMenu (stub)");
   }
 
   static getApplicationMenu() {
@@ -22,8 +18,8 @@ export class menuShim {
   }
 
   popup(options) {
-    // TODO: implement custom HTML context menu rendered at mouse position
-    console.log('[shim:Menu] popup (stub)', options);
+    // TODO: render custom HTML context menu at mouse position
+    console.log("[shim:Menu] popup (stub)", options);
   }
 
   append(menuItem) {
@@ -41,19 +37,19 @@ export class menuShim {
 
 export class menuItemShim {
   constructor(options = {}) {
-    this.label = options.label || '';
-    this.type = options.type || 'normal';
+    this.label = options.label || "";
+    this.type = options.type || "normal";
     this.click = options.click || null;
     this.role = options.role || null;
-    this.accelerator = options.accelerator || '';
+    this.accelerator = options.accelerator || "";
     this.enabled = options.enabled !== false;
     this.visible = options.visible !== false;
     this.checked = !!options.checked;
     this.submenu = options.submenu
       ? menuShim.buildFromTemplate(
-          Array.isArray(options.submenu) ? options.submenu : []
+          Array.isArray(options.submenu) ? options.submenu : [],
         )
       : null;
-    this.id = options.id || '';
+    this.id = options.id || "";
   }
 }

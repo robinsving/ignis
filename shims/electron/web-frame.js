@@ -1,6 +1,3 @@
-// Shim for electron.webFrame
-// Obsidian uses: getZoomLevel(), setZoomLevel()
-
 let currentZoom = 0;
 
 export const webFrame = {

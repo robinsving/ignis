@@ -17,8 +17,7 @@ function getVaultRoot(req, res) {
 }
 
 // Resolve a client-provided path to an absolute path within a vault.
-// Strips leading slashes so paths from the client are always treated as
-// relative to the vault root. Rejects path traversal attempts.
+// Strips leading slashes so paths from the client are always treated as relative to the vault root.
 function resolveVaultPath(vaultRoot, relativePath) {
   const cleaned = (relativePath || "").replace(/^\/+/, "");
   const resolved = path.resolve(vaultRoot, cleaned);
@@ -40,6 +39,19 @@ function guardPath(req, res) {
   const resolved = resolveVaultPath(vaultRoot, p);
   if (!resolved) {
     res.status(403).json({ error: "Path traversal rejected" });
+    return null;
+  }
+  req._vaultRoot = vaultRoot;
+  return resolved;
+}
+
+// Same as guardPath but reads path from req.body (POST routes)
+function guardBodyPath(req, res) {
+  const vaultRoot = getVaultRoot(req, res);
+  if (!vaultRoot) return null;
+  const resolved = resolveVaultPath(vaultRoot, req.body?.path);
+  if (!resolved) {
+    res.status(403).json({ error: "Invalid path" });
     return null;
   }
   req._vaultRoot = vaultRoot;
@@ -70,7 +82,7 @@ router.get("/readdir", async (req, res) => {
   const resolved = guardPath(req, res);
   if (!resolved) return;
   try {
-    // Check if path is a file  -  return ENOTDIR instead of crashing
+    // Check if path is a file. return ENOTDIR instead of crashing
     const stat = await fs.promises.stat(resolved);
     if (!stat.isDirectory()) {
       return res
@@ -123,10 +135,8 @@ router.get("/readFile", async (req, res) => {
 
 // POST /api/fs/writeFile { path, content, encoding?, vault? }
 router.post("/writeFile", async (req, res) => {
-  const vaultRoot = getVaultRoot(req, res);
-  if (!vaultRoot) return;
-  const resolved = resolveVaultPath(vaultRoot, req.body?.path);
-  if (!resolved) return res.status(403).json({ error: "Invalid path" });
+  const resolved = guardBodyPath(req, res);
+  if (!resolved) return;
   try {
     // Ensure parent directory exists
     const dir = path.dirname(resolved);
@@ -151,10 +161,8 @@ router.post("/writeFile", async (req, res) => {
 
 // POST /api/fs/appendFile { path, content, vault? }
 router.post("/appendFile", async (req, res) => {
-  const vaultRoot = getVaultRoot(req, res);
-  if (!vaultRoot) return;
-  const resolved = resolveVaultPath(vaultRoot, req.body?.path);
-  if (!resolved) return res.status(403).json({ error: "Invalid path" });
+  const resolved = guardBodyPath(req, res);
+  if (!resolved) return;
   try {
     await fs.promises.appendFile(resolved, req.body.content, "utf-8");
     res.json({ ok: true });
@@ -165,10 +173,8 @@ router.post("/appendFile", async (req, res) => {
 
 // POST /api/fs/mkdir { path, recursive?, vault? }
 router.post("/mkdir", async (req, res) => {
-  const vaultRoot = getVaultRoot(req, res);
-  if (!vaultRoot) return;
-  const resolved = resolveVaultPath(vaultRoot, req.body?.path);
-  if (!resolved) return res.status(403).json({ error: "Invalid path" });
+  const resolved = guardBodyPath(req, res);
+  if (!resolved) return;
   try {
     await fs.promises.mkdir(resolved, { recursive: !!req.body.recursive });
     res.json({ ok: true });
@@ -277,10 +283,8 @@ router.get("/realpath", async (req, res) => {
 
 // POST /api/fs/utimes { path, atime, mtime, vault? }
 router.post("/utimes", async (req, res) => {
-  const vaultRoot = getVaultRoot(req, res);
-  if (!vaultRoot) return;
-  const resolved = resolveVaultPath(vaultRoot, req.body?.path);
-  if (!resolved) return res.status(403).json({ error: "Invalid path" });
+  const resolved = guardBodyPath(req, res);
+  if (!resolved) return;
   try {
     await fs.promises.utimes(
       resolved,
@@ -293,7 +297,7 @@ router.post("/utimes", async (req, res) => {
   }
 });
 
-// GET /api/fs/tree?path=...&vault=...  -  returns full recursive file tree with metadata
+// GET /api/fs/tree?path=...&vault=... returns full recursive file tree with metadata
 router.get("/tree", async (req, res) => {
   const vaultRoot = getVaultRoot(req, res);
   if (!vaultRoot) return;

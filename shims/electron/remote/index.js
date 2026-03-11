@@ -1,6 +1,3 @@
-// @electron/remote shim
-// Returned when Obsidian calls: window.require('@electron/remote')
-
 import { clipboardShim } from "./clipboard.js";
 import { shellShim } from "./shell.js";
 import { dialogShim } from "./dialog.js";

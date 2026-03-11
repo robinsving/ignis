@@ -1,28 +1,7 @@
-// Shim for electron.ipcRenderer
-// Obsidian uses: .send(), .sendSync(), .on(), .once()
-//
-// sendSync channels discovered in app.js:
-//   vault        → {id, path}      -  critical for startup
-//   version      → string          -  app version
-//   is-dev       → boolean         -  dev mode flag
-//   file-url     → string          -  base URL prefix for vault assets
-//   disable-update → boolean       -  whether updates are disabled
-//   update       → string          -  update status
-//   disable-gpu  → boolean         -  GPU acceleration toggle
-//   frame        → void            -  window frame style
-//   set-icon     → void            -  custom vault icon
-//   get-icon     → null|object     -  get custom vault icon
-//   relaunch     → void            -  restart app
-//   starter      → void            -  open vault chooser
-//   help         → void            -  open help
-//   sandbox      → void            -  open sandbox vault
-//   copy-asar    → boolean         -  install update
-
 import { showVaultManager } from "../ui/vault-manager.js";
 
 const listeners = new Map();
 
-// Sync channel handlers  -  must return values synchronously
 const syncHandlers = {
   vault: () => window.__vaultConfig || { id: "default-vault", path: "/" },
   version: () => "1.8.9",
@@ -51,7 +30,6 @@ const syncHandlers = {
   "copy-asar": () => false,
   "check-update": () => null,
   "vault-list": () => {
-    // Starter expects an object keyed by ID: {id: {path, ts, name}}
     const result = {};
     for (const v of window.__vaultList || []) {
       result[v.id] = {
@@ -66,14 +44,12 @@ const syncHandlers = {
     const id = (vaultPath || "").replace(/^\/+/, "");
     const vault = (window.__vaultList || []).find((v) => v.id === id);
     if (!vault && id) {
-      // New vault created by starter  -  create it on the server
       const xhr = new XMLHttpRequest();
       xhr.open("POST", "/api/vault/create", false);
       xhr.setRequestHeader("Content-Type", "application/json");
       xhr.send(JSON.stringify({ name: id }));
       if (xhr.status >= 400) return "Failed to create vault";
     }
-    // Navigate  -  use parent if in iframe, otherwise current window
     const target = window.parent !== window ? window.parent : window;
     target.location.href = "/?vault=" + encodeURIComponent(id);
     return true;
@@ -90,7 +66,6 @@ const syncHandlers = {
     return xhr.status < 400;
   },
   "vault-move": (oldPath, newPath) => {
-    // Not supported in web context
     return "Moving vaults is not supported in the web version";
   },
   "vault-message": () => null,
@@ -105,10 +80,6 @@ export const ipcRenderer = {
   send(channel, ...args) {
     console.log("[shim:ipcRenderer] send:", channel, args);
 
-    // context-menu: Obsidian sends this and waits (up to 1s) for a response.
-    // In Electron, the main process returns spell-check info + edit flags.
-    // We reply immediately with a response object so Obsidian proceeds to
-    // build and show its HTML context menu without delay.
     if (channel === "context-menu") {
       queueMicrotask(() =>
         ipcRenderer._emit("context-menu", {
@@ -163,7 +134,6 @@ export const ipcRenderer = {
     return ipcRenderer;
   },
 
-  // Internal: emit an event to registered listeners (used by ws bridge)
   _emit(channel, ...args) {
     const arr = listeners.get(channel);
     if (arr) {

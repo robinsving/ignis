@@ -1,6 +1,3 @@
-// Synchronous fs method implementations
-// Served from caches where possible, sync XHR fallback for uncached content.
-
 export function createFsSync(metadataCache, contentCache, transport) {
   return {
     existsSync(path) {
@@ -32,7 +29,6 @@ export function createFsSync(metadataCache, contentCache, transport) {
     readFileSync(path, encoding) {
       if (typeof encoding === "object") encoding = encoding?.encoding;
 
-      // Short-circuit: reading a directory is an error
       const meta = metadataCache.get(path);
       if (meta && meta.type === "directory") {
         const e = new Error("EISDIR: illegal operation on a directory, read");
@@ -40,7 +36,6 @@ export function createFsSync(metadataCache, contentCache, transport) {
         throw e;
       }
 
-      // Try content cache first
       const cached = contentCache.get(path);
       if (cached !== null) {
         if (encoding === "utf8" || encoding === "utf-8") {
@@ -51,7 +46,6 @@ export function createFsSync(metadataCache, contentCache, transport) {
         return cached;
       }
 
-      // Fallback: synchronous XHR
       console.warn("[shim:fs] readFileSync cache miss, using sync XHR:", path);
       const data = transport.readFileSync(path, encoding);
       contentCache.set(path, data);
@@ -61,7 +55,6 @@ export function createFsSync(metadataCache, contentCache, transport) {
     writeFileSync(path, data, encoding) {
       if (typeof encoding === "object") encoding = encoding?.encoding;
 
-      // Write to cache immediately (sync return)
       contentCache.set(path, data);
       const size =
         typeof data === "string" ? data.length : data.byteLength || 0;
@@ -86,7 +79,7 @@ export function createFsSync(metadataCache, contentCache, transport) {
       contentCache.delete(path);
       metadataCache.delete(path);
 
-      // Fire-and-forget  -  suppress ENOENT (file already gone, e.g. .OBSIDIANTEST race)
+      // Fire-and-forget  -  suppress ENOENT (file already gone)
       transport.unlink(path).catch((e) => {
         if (e.code !== "ENOENT") {
           console.error(

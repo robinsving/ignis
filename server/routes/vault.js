@@ -5,7 +5,7 @@ const path = require("path");
 
 const router = express.Router();
 
-// GET /api/vault/list  -  returns all discovered vaults (re-scans on each call)
+// GET /api/vault/list - returns all discovered vaults (re-scans on each call)
 router.get("/list", (req, res) => {
   config.refreshVaults();
   const list = Object.entries(config.vaults).map(([id, vaultPath]) => ({
@@ -16,7 +16,7 @@ router.get("/list", (req, res) => {
   res.json(list);
 });
 
-// GET /api/vault/info?vault=<id>  -  returns info for a specific vault
+// GET /api/vault/info?vault=<id> - returns info for a specific vault
 router.get("/info", (req, res) => {
   const vaultId = req.query.vault || config.defaultVaultId;
   const vaultPath = config.getVaultPath(vaultId);
@@ -32,7 +32,7 @@ router.get("/info", (req, res) => {
   });
 });
 
-// POST /api/vault/create { name }  -  create a new vault in VAULT_ROOT
+// POST /api/vault/create { name } - create a new vault in VAULT_ROOT
 router.post("/create", async (req, res) => {
   const name = req.body?.name;
   if (!name || /[\/\\:*?"<>|]/.test(name)) {
@@ -54,7 +54,7 @@ router.post("/create", async (req, res) => {
   }
 });
 
-// DELETE /api/vault/remove?vault=<id>  -  remove a vault from disk
+// DELETE /api/vault/remove?vault=<id> - remove a vault from disk
 router.delete("/remove", async (req, res) => {
   const vaultId = req.query.vault;
   const vaultPath = config.getVaultPath(vaultId);

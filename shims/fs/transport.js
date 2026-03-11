@@ -1,16 +1,9 @@
-// Transport abstraction layer
-// Decouples the fs shim from the sync mechanism (REST, WebSocket, or hybrid).
-// Currently implements a REST-based transport. This can be swapped or extended
-// once the sync strategy is finalized.
-
 const API_BASE = "/api/fs";
 
-// Strip leading slashes from paths before sending to server
 function normPath(p) {
   return (p || "").replace(/^\/+/, "");
 }
 
-// Convert a Uint8Array to base64 without blowing the stack
 function uint8ToBase64(bytes) {
   let binary = "";
   const chunk = 8192;
@@ -56,12 +49,10 @@ async function requestJson(method, endpoint, params = {}) {
   return res.json();
 }
 
-// Synchronous XHR  -  used only as fallback for sync fs calls on uncached content.
-// Blocking but functional. Should be rare after pre-warming.
 function requestSync(method, endpoint, params = {}) {
   const url = new URL(API_BASE + endpoint, window.location.origin);
 
-  if (method === "GET") {
+  if (method === "GET" || method === "DELETE") {
     if (vaultId()) url.searchParams.set("vault", vaultId());
     for (const [key, val] of Object.entries(params)) {
       url.searchParams.set(key, val);
@@ -71,7 +62,7 @@ function requestSync(method, endpoint, params = {}) {
   const xhr = new XMLHttpRequest();
   xhr.open(method, url.toString(), false); // synchronous
 
-  if (method !== "GET") {
+  if (method !== "GET" && method !== "DELETE") {
     xhr.setRequestHeader("Content-Type", "application/json");
     xhr.send(JSON.stringify({ vault: vaultId(), ...params }));
   } else {
@@ -95,8 +86,6 @@ function requestSync(method, endpoint, params = {}) {
 }
 
 export const transport = {
-  // --- Async methods (used by fs.promises) ---
-
   async fetchTree(basePath) {
     return requestJson("GET", "/tree", basePath ? { path: basePath } : {});
   },
@@ -190,8 +179,6 @@ export const transport = {
     });
   },
 
-  // --- Sync methods (fallback) ---
-
   readFileSync(path, encoding) {
     const xhr = requestSync("GET", "/readFile", {
       path: normPath(path),
@@ -200,7 +187,6 @@ export const transport = {
     if (encoding === "utf8" || encoding === "utf-8") {
       return xhr.responseText;
     }
-    // Binary: return as Uint8Array
     const binary = xhr.responseText;
     const bytes = new Uint8Array(binary.length);
     for (let i = 0; i < binary.length; i++) {

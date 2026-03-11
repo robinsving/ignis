@@ -1,4 +1,3 @@
-# Stage 1: Build shims and extract/patch Obsidian
 FROM node:20-slim AS build
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -10,20 +9,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /build
 
-# Install dependencies first (layer caching)
 COPY package.json package-lock.json ./
 RUN npm ci --ignore-scripts
 
-# Copy source
 COPY build.js ./
 COPY shims/ ./shims/
 COPY scripts/ ./scripts/
 COPY server/ ./server/
 
-# Build shim-loader bundle
 RUN npm run build:shims
 
-# Download and extract Obsidian
+
 ARG OBSIDIAN_VERSION=1.8.9
 RUN curl -fSL "https://github.com/obsidianmd/obsidian-releases/releases/download/v${OBSIDIAN_VERSION}/obsidian_${OBSIDIAN_VERSION}_amd64.deb" \
   -o /tmp/obsidian.deb \
@@ -33,7 +29,7 @@ RUN curl -fSL "https://github.com/obsidianmd/obsidian-releases/releases/download
   && tar -xf /tmp/obsidian-deb/data.tar.xz -C /tmp/obsidian-pkg \
   && rm -rf /tmp/obsidian.deb /tmp/obsidian-deb
 
-# Extract asar
+
 RUN npx --yes @electron/asar extract \
   /tmp/obsidian-pkg/opt/Obsidian/resources/obsidian.asar \
   /build/obsidian-app \
@@ -42,10 +38,9 @@ RUN npx --yes @electron/asar extract \
 # Patch index.html
 RUN node scripts/patch-obsidian.js /build/obsidian-app
 
-# Copy built shim-loader into the obsidian app directory
 RUN cp dist/shim-loader.js /build/obsidian-app/shim-loader.js
 
-# Stage 2: Production image
+# Production image
 FROM node:20-slim
 
 WORKDIR /app

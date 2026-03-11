@@ -1,21 +1,24 @@
-// Shim for remote.Notification
-// Maps to browser Notification API
-
 export class notificationShim {
   constructor(options = {}) {
-    this.title = options.title || '';
-    this.body = options.body || '';
+    this.title = options.title || "";
+    this.body = options.body || "";
     this.silent = options.silent || false;
     this._handlers = {};
   }
 
   show() {
-    if ('Notification' in window && Notification.permission === 'granted') {
+    if ("Notification" in window && Notification.permission === "granted") {
       new Notification(this.title, { body: this.body, silent: this.silent });
-    } else if ('Notification' in window && Notification.permission !== 'denied') {
+    } else if (
+      "Notification" in window &&
+      Notification.permission !== "denied"
+    ) {
       Notification.requestPermission().then((perm) => {
-        if (perm === 'granted') {
-          new Notification(this.title, { body: this.body, silent: this.silent });
+        if (perm === "granted") {
+          new Notification(this.title, {
+            body: this.body,
+            silent: this.silent,
+          });
         }
       });
     }
@@ -29,6 +32,6 @@ export class notificationShim {
   }
 
   static isSupported() {
-    return 'Notification' in window;
+    return "Notification" in window;
   }
 }

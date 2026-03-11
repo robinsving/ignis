@@ -1,9 +1,6 @@
-// Shim for remote.systemPreferences
-// No-op with safe defaults
-
 export const systemPreferencesShim = {
   getAccentColor() {
-    return '0078d4'; // Default Windows accent blue
+    return "0078d4"; // Default Windows accent blue
   },
 
   isAeroGlassEnabled() {
@@ -11,7 +8,7 @@ export const systemPreferencesShim = {
   },
 
   getMediaAccessStatus(mediaType) {
-    return 'granted';
+    return "granted";
   },
 
   askForMediaAccess(mediaType) {

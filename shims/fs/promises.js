@@ -1,10 +1,6 @@
-// Async fs.promises implementation
-// Maps to transport layer (REST/WebSocket/hybrid  -  TBD)
-
 export function createFsPromises(metadataCache, contentCache, transport) {
   return {
     async stat(path) {
-      // Try cache first, fall back to server
       const cached = metadataCache.toStat(path);
       if (cached) return cached;
 
@@ -14,17 +10,15 @@ export function createFsPromises(metadataCache, contentCache, transport) {
     },
 
     async lstat(path) {
-      // No symlinks in our context  -  same as stat
+      // No symlinks in our context
       return this.stat(path);
     },
 
     async readdir(path) {
-      // If metadata cache knows this is a file, return empty (ENOTDIR)
       const meta = metadataCache.get(path);
       if (meta && meta.type === "file") {
         return [];
       }
-      // If path not in cache at all (and not root), it doesn't exist
       if (!meta && path && path !== "/" && path !== ".") {
         const e = new Error(
           `ENOENT: no such file or directory, scandir '${path}'`,
@@ -32,7 +26,6 @@ export function createFsPromises(metadataCache, contentCache, transport) {
         e.code = "ENOENT";
         throw e;
       }
-      // Serve from metadata cache
       const entries = metadataCache.readdir(path);
       return entries.map((e) => e.name);
     },
@@ -41,14 +34,12 @@ export function createFsPromises(metadataCache, contentCache, transport) {
       if (typeof encoding === "object") encoding = encoding?.encoding;
       const wantText = encoding === "utf8" || encoding === "utf-8";
 
-      // Short-circuit: reading a directory is an error
       const meta = metadataCache.get(path);
       if (meta && meta.type === "directory") {
         const e = new Error("EISDIR: illegal operation on a directory, read");
         e.code = "EISDIR";
         throw e;
       }
-      // Short-circuit: file not in metadata cache → doesn't exist
       if (!meta && path) {
         const e = new Error(
           `ENOENT: no such file or directory, open '${path}'`,
@@ -57,7 +48,6 @@ export function createFsPromises(metadataCache, contentCache, transport) {
         throw e;
       }
 
-      // Check content cache
       const cached = contentCache.get(path);
       if (cached !== null) {
         if (wantText) {
@@ -65,14 +55,13 @@ export function createFsPromises(metadataCache, contentCache, transport) {
             ? cached
             : new TextDecoder().decode(cached);
         }
-        // Binary mode: ensure we return a proper Uint8Array with .buffer
+        // binary. ensure we return a proper Uint8Array with .buffer
         if (typeof cached === "string") {
           return new TextEncoder().encode(cached);
         }
         return cached;
       }
 
-      // Fetch from server
       const data = await transport.readFile(path, encoding);
       contentCache.set(path, data);
       return data;
@@ -81,7 +70,6 @@ export function createFsPromises(metadataCache, contentCache, transport) {
     async writeFile(path, data, encoding) {
       if (typeof encoding === "object") encoding = encoding?.encoding;
 
-      // Update caches optimistically
       contentCache.set(path, data);
       const size =
         typeof data === "string" ? data.length : data.byteLength || 0;
@@ -92,9 +80,7 @@ export function createFsPromises(metadataCache, contentCache, transport) {
         ctime: metadataCache.get(path)?.ctime || Date.now(),
       });
 
-      // Send to server
       const result = await transport.writeFile(path, data, encoding);
-      // Update metadata with server-confirmed values
       if (result.mtime) {
         metadataCache.set(path, {
           type: "file",
@@ -108,7 +94,7 @@ export function createFsPromises(metadataCache, contentCache, transport) {
     async appendFile(path, data, encoding) {
       contentCache.invalidate(path);
       await transport.appendFile(path, data);
-      // Refresh metadata
+
       const meta = await transport.stat(path);
       metadataCache.set(path, meta);
     },
@@ -120,13 +106,11 @@ export function createFsPromises(metadataCache, contentCache, transport) {
     },
 
     async rename(oldPath, newPath) {
-      // Move content cache entry
       const content = contentCache.get(oldPath);
       if (content !== null) {
         contentCache.set(newPath, content);
         contentCache.delete(oldPath);
       }
-      // Move metadata
       metadataCache.rename(oldPath, newPath);
 
       await transport.rename(oldPath, newPath);
@@ -154,7 +138,6 @@ export function createFsPromises(metadataCache, contentCache, transport) {
 
     async copyFile(src, dest) {
       await transport.copyFile(src, dest);
-      // Refresh metadata for dest
       const meta = await transport.stat(dest);
       metadataCache.set(dest, meta);
     },
@@ -169,7 +152,6 @@ export function createFsPromises(metadataCache, contentCache, transport) {
     },
 
     async realpath(path) {
-      // Empty path = vault root, return the vault base path
       if (!path || path === "/" || path === ".") return "/";
       return transport.realpath(path);
     },

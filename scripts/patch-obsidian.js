@@ -2,7 +2,6 @@
 // Patches the extracted Obsidian asar for browser use:
 //   1. Removes Content-Security-Policy meta tag
 //   2. Injects shim-loader.js script (non-deferred, before all other scripts)
-// Patches both index.html and starter.html.
 
 const fs = require("fs");
 const path = require("path");

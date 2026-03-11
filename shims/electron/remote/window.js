@@ -1,8 +1,3 @@
-// Shim for remote.getCurrentWindow() / remote.BrowserWindow
-// Obsidian uses: isMaximized, isMinimized, isFullScreen, minimize, maximize,
-//   unmaximize, close, setTitle, setAlwaysOnTop, isAlwaysOnTop,
-//   getBounds, setBounds, show, focus, setFullScreen, etc.
-
 const currentWindowState = {
   title: "Obsidian",
   isMaximized: false,
@@ -80,7 +75,6 @@ const currentWindow = {
   },
 
   setBounds(bounds) {
-    // Cannot resize browser window from JS
     console.log("[shim:window] setBounds (stub):", bounds);
   },
 
@@ -113,7 +107,6 @@ const currentWindow = {
   },
 
   on(event, handler) {
-    // Map some Electron window events to browser equivalents
     if (event === "focus") window.addEventListener("focus", handler);
     else if (event === "blur") window.addEventListener("blur", handler);
     else if (event === "resize") window.addEventListener("resize", handler);

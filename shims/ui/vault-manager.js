@@ -1,4 +1,4 @@
-// Custom vault manager modal  -  vanilla JS (will migrate to Svelte later)
+// Custom vault manager modal. will migrate to Svelte later
 // Shows list of vaults, create new, delete, switch.
 
 export function showVaultManager() {
@@ -74,11 +74,7 @@ export function showVaultManager() {
         "color:var(--text-muted);border-radius:4px;padding:2px 8px;font-size:12px;cursor:pointer;";
       del.addEventListener("click", (e) => {
         e.stopPropagation();
-        if (
-          !confirm(
-            'Delete vault "' + v.name + '"? This removes all files.',
-          )
-        )
+        if (!confirm('Delete vault "' + v.name + '"? This removes all files.'))
           return;
         const xhr2 = new XMLHttpRequest();
         xhr2.open(

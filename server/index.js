@@ -7,7 +7,6 @@ const app = express();
 
 app.use(express.json({ limit: "50mb" }));
 
-// --- Request logging ---
 app.use((req, res, next) => {
   const start = Date.now();
   const origEnd = res.end;
@@ -29,7 +28,6 @@ app.use((req, res, next) => {
   next();
 });
 
-// --- Routes ---
 const fsRoutes = require("./routes/fs");
 const vaultRoutes = require("./routes/vault");
 
@@ -51,15 +49,10 @@ app.use("/vault-files", (req, res, next) => {
   express.static(vaultPath)(req, res, next);
 });
 
-// --- Static serving ---
-// dist/ has shim-loader.js + patched index.html (dev mode).
-// In Docker, these live inside the obsidian assets dir instead.
 app.use(express.static(path.join(__dirname, "..", "dist")));
 
-// Serve obsidian assets (app.js, app.css, libs, fonts, etc.)
 app.use(express.static(config.obsidianAssetsPath));
 
-// --- Start ---
 const server = app.listen(config.port, () => {
   console.log(
     `[obsidian-bridge] Server running on http://localhost:${config.port}`,

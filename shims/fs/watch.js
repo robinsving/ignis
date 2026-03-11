@@ -1,14 +1,9 @@
-// File watching shim
-// Translates fs.watch() calls into WebSocket subscriptions.
-// The server pushes file-change events; this module dispatches them
-// to registered watch listeners.
-
 export function createFsWatch(transport) {
   const watchers = new Map(); // path -> Set<listener>
 
   return {
     watch(path, options, listener) {
-      if (typeof options === 'function') {
+      if (typeof options === "function") {
         listener = options;
         options = {};
       }
@@ -32,22 +27,28 @@ export function createFsWatch(transport) {
             }
           }
         },
-        on() { return this; },
-        once() { return this; },
-        removeListener() { return this; },
+        on() {
+          return this;
+        },
+        once() {
+          return this;
+        },
+        removeListener() {
+          return this;
+        },
       };
     },
 
     // Internal: called when transport receives a file-change event
     _dispatch(eventType, filePath) {
       for (const [watchPath, listeners] of watchers) {
-        if (filePath === watchPath || filePath.startsWith(watchPath + '/')) {
+        if (filePath === watchPath || filePath.startsWith(watchPath + "/")) {
           const relativeName = filePath.slice(watchPath.length + 1) || filePath;
           for (const fn of listeners) {
             try {
               fn(eventType, relativeName);
             } catch (e) {
-              console.error('[shim:fs:watch] Listener error:', e);
+              console.error("[shim:fs:watch] Listener error:", e);
             }
           }
         }

@@ -1,14 +1,12 @@
-// Shim for remote.nativeTheme
-// Obsidian uses: shouldUseDarkColors, on('updated', cb)
-
 const listeners = [];
 
-const darkQuery = typeof window !== 'undefined'
-  ? window.matchMedia('(prefers-color-scheme: dark)')
-  : null;
+const darkQuery =
+  typeof window !== "undefined"
+    ? window.matchMedia("(prefers-color-scheme: dark)")
+    : null;
 
 if (darkQuery?.addEventListener) {
-  darkQuery.addEventListener('change', () => {
+  darkQuery.addEventListener("change", () => {
     for (const fn of listeners) {
       fn();
     }
@@ -21,7 +19,7 @@ export const themeShim = {
   },
 
   get themeSource() {
-    return 'system';
+    return "system";
   },
 
   set themeSource(val) {
@@ -29,14 +27,14 @@ export const themeShim = {
   },
 
   on(event, callback) {
-    if (event === 'updated') {
+    if (event === "updated") {
       listeners.push(callback);
     }
     return themeShim;
   },
 
   once(event, callback) {
-    if (event === 'updated') {
+    if (event === "updated") {
       const wrapped = () => {
         const idx = listeners.indexOf(wrapped);
         if (idx >= 0) listeners.splice(idx, 1);

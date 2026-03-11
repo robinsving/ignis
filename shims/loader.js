@@ -1,17 +1,11 @@
-// shim-loader.js
-// Loaded before app.js. Defines window.require() and window.process
-// to intercept all Electron/Node API calls from Obsidian's renderer code.
-
 import { electronShim } from "./electron/index.js";
 import { remoteShim } from "./electron/remote/index.js";
 import { fsShim } from "./fs/index.js";
 import { pathShim } from "./path.js";
 import { urlShim } from "./url.js";
 import { cryptoShim } from "./crypto/index.js";
-import { btimeShim } from "./btime.js";
 import { processShim } from "./process.js";
 
-// Debug mode: wrap shims in Proxy to log all property accesses
 const DEBUG = true;
 const _accessLog = new Map(); // "module.property" -> count
 
@@ -28,7 +22,7 @@ function wrapWithProxy(obj, name) {
         const key = `${name}.${prop}`;
         _accessLog.set(key, (_accessLog.get(key) || 0) + 1);
         if (!(prop in target)) {
-          console.warn(`[shim:MISS] ${key}  -  property not found on shim`);
+          console.warn(`[shim:MISS] ${key} - property not found on shim`);
         }
       }
       return target[prop];
@@ -36,7 +30,6 @@ function wrapWithProxy(obj, name) {
   });
 }
 
-// Expose access log for debugging in console: window.__shimLog()
 window.__shimLog = function () {
   const sorted = [..._accessLog.entries()].sort((a, b) => b[1] - a[1]);
   console.table(sorted.map(([k, v]) => ({ api: k, calls: v })));
@@ -60,7 +53,6 @@ const rawRegistry = {
   path: pathShim,
   url: urlShim,
   crypto: cryptoShim,
-  btime: btimeShim,
 };
 
 const shimRegistry = {};
@@ -68,7 +60,6 @@ for (const [name, shim] of Object.entries(rawRegistry)) {
   shimRegistry[name] = wrapWithProxy(shim, name);
 }
 
-// Modules that should throw on require (native modules that don't exist in browser)
 const throwOnRequire = new Set(["btime", "get-fonts", "vibrancy-win"]);
 
 window.require = function (moduleName) {
@@ -84,9 +75,7 @@ window.require = function (moduleName) {
 
 window.process = processShim;
 
-// Provide a global Buffer if needed
 if (typeof window.Buffer === "undefined") {
-  // TODO: evaluate if a full Buffer polyfill is needed or if Uint8Array suffices
   window.Buffer = {
     from: function (data, encoding) {
       if (typeof data === "string") {
@@ -113,22 +102,10 @@ if (typeof window.Buffer === "undefined") {
   };
 }
 
-// Prevent app.js from closing the window (browser blocks this anyway, but suppress the error)
-// In an iframe (starter modal), close the modal overlay instead.
-const _origClose = window.close;
 window.close = function () {
-  if (window.parent !== window) {
-    const modal = window.parent.document.getElementById("ignis-starter-modal");
-    if (modal) modal.remove();
-    return;
-  }
   console.log("[obsidian-bridge] window.close() blocked");
 };
 
-// Suppress the browser's native context menu without breaking Obsidian's.
-// Problem: preventDefault() blocks the browser menu but also sets
-// event.defaultPrevented=true, which Obsidian checks to bail out.
-// Solution: call preventDefault() then shadow defaultPrevented to return false.
 window.addEventListener(
   "contextmenu",
   (e) => {
@@ -138,11 +115,9 @@ window.addEventListener(
   true,
 );
 
-// Read vault ID from URL query param (?vault=my-notes)
 const _urlParams = new URLSearchParams(window.location.search);
 window.__currentVaultId = _urlParams.get("vault") || "";
 
-// Fetch vault config from server synchronously (before metadata cache)
 (function initVaultConfig() {
   try {
     const vaultParam = window.__currentVaultId
@@ -165,7 +140,6 @@ window.__currentVaultId = _urlParams.get("vault") || "";
   }
 })();
 
-// Fetch vault list for IPC handlers
 (function initVaultList() {
   try {
     const xhr = new XMLHttpRequest();
@@ -179,8 +153,6 @@ window.__currentVaultId = _urlParams.get("vault") || "";
   }
 })();
 
-// Pre-populate fs metadata cache synchronously before app.js runs.
-// This ensures existsSync() works for the vault path during startup.
 (function initMetadataCache() {
   try {
     const vaultParam = window.__currentVaultId
