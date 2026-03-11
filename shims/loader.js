@@ -5,6 +5,12 @@ import { pathShim } from "./path.js";
 import { urlShim } from "./url.js";
 import { cryptoShim } from "./crypto/index.js";
 import { processShim } from "./process.js";
+import { installRequestUrlShim } from "./request-url.js";
+import * as childProcessShim from "./node/child_process.js";
+import * as eventsShim from "./node/events.js";
+import * as osShim from "./node/os.js";
+import * as netShim from "./node/net.js";
+import * as httpShim from "./node/http.js";
 
 const DEBUG = true;
 const _accessLog = new Map(); // "module.property" -> count
@@ -53,6 +59,12 @@ const rawRegistry = {
   path: pathShim,
   url: urlShim,
   crypto: cryptoShim,
+  child_process: childProcessShim,
+  events: eventsShim,
+  os: osShim,
+  net: netShim,
+  http: httpShim,
+  https: httpShim,
 };
 
 const shimRegistry = {};
@@ -181,5 +193,7 @@ window.__currentVaultId = _urlParams.get("vault") || "";
     console.error("[obsidian-bridge] Failed to init metadata cache:", e);
   }
 })();
+
+installRequestUrlShim();
 
 console.log("[obsidian-bridge] Shim loader initialized");

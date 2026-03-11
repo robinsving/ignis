@@ -30,9 +30,11 @@ app.use((req, res, next) => {
 
 const fsRoutes = require("./routes/fs");
 const vaultRoutes = require("./routes/vault");
+const proxyRoutes = require("./routes/proxy");
 
 app.use("/api/fs", fsRoutes);
 app.use("/api/vault", vaultRoutes);
+app.use("/api/proxy", proxyRoutes);
 
 // Serve vault files for resource URLs (images, attachments, etc.)
 // Vault ID is the first path segment: /vault-files/<vault-id>/path/to/file
