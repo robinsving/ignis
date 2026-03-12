@@ -7,6 +7,18 @@ export const electronShim = {
   webFrame,
   remote: remoteShim,
 
+  safeStorage: {
+    isEncryptionAvailable() {
+      return false;
+    },
+    encryptString(plainText) {
+      return Buffer.from(plainText);
+    },
+    decryptString(encrypted) {
+      return encrypted.toString();
+    },
+  },
+
   webUtils: {
     getPathForFile(file) {
       return "";
