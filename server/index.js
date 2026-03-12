@@ -56,13 +56,9 @@ app.use(express.static(path.join(__dirname, "..", "dist")));
 app.use(express.static(config.obsidianAssetsPath));
 
 const server = app.listen(config.port, () => {
-  console.log(
-    `[obsidian-bridge] Server running on http://localhost:${config.port}`,
-  );
-  console.log(`[obsidian-bridge] Vault root: ${config.vaultRoot}`);
-  console.log(
-    `[obsidian-bridge] Vaults: ${Object.keys(config.vaults).join(", ")}`,
-  );
+  console.log(`[ignis] Server running on http://localhost:${config.port}`);
+  console.log(`[ignis] Vault root: ${config.vaultRoot}`);
+  console.log(`[ignis] Vaults: ${Object.keys(config.vaults).join(", ")}`);
 });
 
 setupWebSocket(server);

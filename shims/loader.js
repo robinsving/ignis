@@ -81,7 +81,7 @@ window.require = function (moduleName) {
   if (shimRegistry[moduleName]) {
     return shimRegistry[moduleName];
   }
-  console.warn("[obsidian-bridge] Unshimmed require:", moduleName);
+  console.warn("[ignis] Unshimmed require:", moduleName);
   return wrapWithProxy({}, `UNKNOWN(${moduleName})`);
 };
 
@@ -115,7 +115,7 @@ if (typeof window.Buffer === "undefined") {
 }
 
 window.close = function () {
-  console.log("[obsidian-bridge] window.close() blocked");
+  console.log("[ignis] window.close() blocked");
 };
 
 window.addEventListener(
@@ -146,16 +146,13 @@ window.__currentVaultId = _urlParams.get("vault") || "";
         id: info.id,
         path: "/",
       };
-      console.log("[obsidian-bridge] Vault:", window.__vaultConfig);
-      console.log(
-        "[obsidian-bridge] Obsidian version:",
-        window.__obsidianVersion,
-      );
+      console.log("[ignis] Vault:", window.__vaultConfig);
+      console.log("[ignis] Obsidian version:", window.__obsidianVersion);
     } else {
-      console.warn("[obsidian-bridge] No vault found, will show manager");
+      console.warn("[ignis] No vault found, will show manager");
     }
   } catch (e) {
-    console.error("[obsidian-bridge] Failed to fetch vault config:", e);
+    console.error("[ignis] Failed to fetch vault config:", e);
   }
 })();
 
@@ -186,21 +183,18 @@ window.__currentVaultId = _urlParams.get("vault") || "";
       fsShim._metadataCache.set("", { type: "directory" });
       fsShim._metadataCache.set("/", { type: "directory" });
       console.log(
-        "[obsidian-bridge] Metadata cache populated:",
+        "[ignis] Metadata cache populated:",
         fsShim._metadataCache.size,
         "entries",
       );
     } else {
-      console.error(
-        "[obsidian-bridge] Failed to fetch metadata tree:",
-        xhr.status,
-      );
+      console.error("[ignis] Failed to fetch metadata tree:", xhr.status);
     }
   } catch (e) {
-    console.error("[obsidian-bridge] Failed to init metadata cache:", e);
+    console.error("[ignis] Failed to init metadata cache:", e);
   }
 })();
 
 installRequestUrlShim();
 
-console.log("[obsidian-bridge] Shim loader initialized");
+console.log("[ignis] Shim loader initialized");
