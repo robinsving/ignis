@@ -1,5 +1,5 @@
 {
-  "name": "Ignis",
+  "name": "ignis",
   "version": "0.1.0",
   "private": true,
   "description": "An Electron shim and server bridge for running Obsidian in a browser.",
