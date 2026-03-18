@@ -182,7 +182,8 @@ window.addEventListener(
 );
 
 const _urlParams = new URLSearchParams(window.location.search);
-window.__currentVaultId = _urlParams.get("vault") || "";
+window.__currentVaultId =
+  _urlParams.get("vault") || localStorage.getItem("last-vault") || "";
 
 (function initVaultConfig() {
   try {
@@ -199,6 +200,7 @@ window.__currentVaultId = _urlParams.get("vault") || "";
       const info = JSON.parse(xhr.responseText);
 
       window.__currentVaultId = info.id;
+      localStorage.setItem("last-vault", info.id);
       window.__obsidianVersion = info.version || "0.0.0";
 
       window.__vaultConfig = {

@@ -72,6 +72,8 @@ export const vaultService = {
       body: JSON.stringify({ vault: id, name: newName }),
     });
 
+    this._migrateLocalStorage(id, newName);
+
     if (id === this.getCurrentVaultId()) {
       window.__currentVaultId = newName;
 
@@ -112,8 +114,25 @@ export const vaultService = {
   },
 
   openVault(id) {
+    localStorage.setItem("last-vault", id);
+
     const target = window.parent !== window ? window.parent : window;
 
     target.location.href = "/?vault=" + encodeURIComponent(id);
+  },
+
+  _migrateLocalStorage(oldId, newId) {
+    const pluginKey = "enable-plugin-";
+
+    const oldVal = localStorage.getItem(pluginKey + oldId);
+
+    if (oldVal !== null) {
+      localStorage.setItem(pluginKey + newId, oldVal);
+      localStorage.removeItem(pluginKey + oldId);
+    }
+
+    if (localStorage.getItem("last-vault") === oldId) {
+      localStorage.setItem("last-vault", newId);
+    }
   },
 };
