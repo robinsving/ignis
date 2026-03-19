@@ -20,9 +20,6 @@ if [ ! -f "$OBSIDIAN_DIR/index.html" ]; then
     /tmp/obsidian-pkg/opt/Obsidian/resources/obsidian.asar \
     "$OBSIDIAN_DIR"
 
-  echo "[ignis] Patching..."
-  node /app/scripts/patch-obsidian.js "$OBSIDIAN_DIR"
-
   rm -rf /tmp/obsidian.deb /tmp/obsidian-deb /tmp/obsidian-pkg
 
   echo "[ignis] Obsidian v${OBSIDIAN_VERSION} ready."
@@ -30,7 +27,8 @@ else
   echo "[ignis] Obsidian already set up."
 fi
 
-# Always copy latest bundles (they may have been updated between rebuilds)
+# Always patch and copy latest bundles (they may have been updated between rebuilds)
+node /app/scripts/patch-obsidian.js "$OBSIDIAN_DIR"
 cp /app/dist/ignis-ui.js "$OBSIDIAN_DIR/ignis-ui.js"
 cp /app/dist/shim-loader.js "$OBSIDIAN_DIR/shim-loader.js"
 cp /app/images/favicon.png "$OBSIDIAN_DIR/favicon.png"

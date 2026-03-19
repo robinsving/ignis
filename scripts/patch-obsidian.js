@@ -14,9 +14,19 @@ if (!asarDir) {
 }
 
 function patchHtml(filePath) {
-  if (!fs.existsSync(filePath)) {
+  const backupPath = filePath + ".orig";
+
+  if (!fs.existsSync(filePath) && !fs.existsSync(backupPath)) {
     console.warn(`[patch] Skipping (not found): ${filePath}`);
     return;
+  }
+
+  // Create backup of the original on first patch; restore from it on subsequent runs
+  if (!fs.existsSync(backupPath)) {
+    fs.copyFileSync(filePath, backupPath);
+    console.log(`[patch] Backed up original: ${backupPath}`);
+  } else {
+    fs.copyFileSync(backupPath, filePath);
   }
 
   let html = fs.readFileSync(filePath, "utf-8");
@@ -27,18 +37,15 @@ function patchHtml(filePath) {
     "\n",
   );
 
-  // Inject favicon into <head>
-  html = html.replace(
-    "</head>",
-    '  <link rel="icon" type="image/png" href="favicon.png">\n</head>',
-  );
+  // Inject ignis assets before the first <script> tag
+  const ignisBlock =
+    '  <link rel="icon" type="image/png" href="favicon.png">\n' +
+    '  <script type="text/javascript" src="ignis-ui.js"></script>\n' +
+    '  <script type="text/javascript" src="shim-loader.js"></script>\n';
 
-  // Inject ignis-ui and shim-loader before the first <script> tag
   html = html.replace(
     '<script type="text/javascript"',
-    '<script type="text/javascript" src="ignis-ui.js"></script>\n' +
-      '<script type="text/javascript" src="shim-loader.js"></script>\n' +
-      '<script type="text/javascript"',
+    ignisBlock + '<script type="text/javascript"',
   );
 
   fs.writeFileSync(filePath, html);
