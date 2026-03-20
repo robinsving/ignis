@@ -1,6 +1,31 @@
 #!/bin/bash
 set -e
 
+# Create user with specified UID/GID
+PUID=${PUID:-1000}
+PGID=${PGID:-1000}
+
+# Create group if GID doesn't exist, otherwise use existing
+if ! getent group "$PGID" >/dev/null 2>&1; then
+  groupadd -g "$PGID" ignis
+else
+  EXISTING_GROUP=$(getent group "$PGID" | cut -d: -f1)
+  echo "[ignis] Using existing group $EXISTING_GROUP (GID $PGID)"
+fi
+
+# Create user if UID doesn't exist, otherwise use existing
+if ! id -u "$PUID" >/dev/null 2>&1; then
+  GROUP_NAME=$(getent group "$PGID" | cut -d: -f1)
+  useradd -u "$PUID" -g "$PGID" -m -s /bin/bash ignis 2>/dev/null || useradd -u "$PUID" -g "$GROUP_NAME" -M -N ignis
+  RUN_USER="ignis"
+else
+  RUN_USER=$(id -un "$PUID")
+  echo "[ignis] Using existing user $RUN_USER (UID $PUID)"
+fi
+
+# Fix ownership of volumes
+chown -R "$PUID:$PGID" /vaults /app/obsidian-app
+
 OBSIDIAN_DIR="/app/obsidian-app"
 OBSIDIAN_VERSION="${OBSIDIAN_VERSION:-1.12.4}"
 
@@ -33,4 +58,5 @@ cp /app/dist/ignis-ui.js "$OBSIDIAN_DIR/ignis-ui.js"
 cp /app/dist/shim-loader.js "$OBSIDIAN_DIR/shim-loader.js"
 cp /app/images/favicon.png "$OBSIDIAN_DIR/favicon.png"
 
-exec node /app/server/index.js
+# Run as the determined user
+exec gosu "$RUN_USER" node /app/server/index.js
