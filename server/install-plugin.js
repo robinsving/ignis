@@ -1,6 +1,46 @@
 const fs = require("fs");
 const path = require("path");
 
+// .ignis metadata helpers
+async function getIgnisMeta(vaultPath) {
+  const ignisDir = path.join(vaultPath, ".ignis");
+  const metaFile = path.join(ignisDir, "meta.json");
+
+  try {
+    const content = await fs.promises.readFile(metaFile, "utf-8");
+    return JSON.parse(content);
+  } catch (e) {
+    return {};
+  }
+}
+
+async function setIgnisMeta(vaultPath, data) {
+  const ignisDir = path.join(vaultPath, ".ignis");
+  const metaFile = path.join(ignisDir, "meta.json");
+
+  await fs.promises.mkdir(ignisDir, { recursive: true });
+  await fs.promises.writeFile(metaFile, JSON.stringify(data, null, 2));
+}
+
+async function checkPluginInstalled(vaultPath) {
+  const pluginDir = path.join(
+    vaultPath,
+    ".obsidian",
+    "plugins",
+    "ignis-bridge",
+  );
+  const manifestPath = path.join(pluginDir, "manifest.json");
+  const mainPath = path.join(pluginDir, "main.js");
+
+  try {
+    await fs.promises.access(manifestPath);
+    await fs.promises.access(mainPath);
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
 async function installPluginInVault(vaultPath) {
   const obsidianDir = path.join(vaultPath, ".obsidian");
   const pluginDir = path.join(obsidianDir, "plugins", "ignis-bridge");
@@ -62,4 +102,10 @@ async function installPluginInAllVaults(vaultRoot) {
   }
 }
 
-module.exports = { installPluginInVault, installPluginInAllVaults };
+module.exports = {
+  installPluginInVault,
+  installPluginInAllVaults,
+  getIgnisMeta,
+  setIgnisMeta,
+  checkPluginInstalled,
+};

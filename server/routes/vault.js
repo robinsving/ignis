@@ -2,6 +2,12 @@ const express = require("express");
 const fs = require("fs");
 const config = require("../config");
 const path = require("path");
+const {
+  checkPluginInstalled,
+  getIgnisMeta,
+  setIgnisMeta,
+  installPluginInVault,
+} = require("../install-plugin");
 
 const router = express.Router();
 
@@ -19,7 +25,7 @@ router.get("/list", (req, res) => {
 });
 
 // GET /api/vault/info?vault=<id> - returns info for a specific vault
-router.get("/info", (req, res) => {
+router.get("/info", async (req, res) => {
   const vaultId = req.query.vault || config.defaultVaultId;
   const vaultPath = config.getVaultPath(vaultId);
 
@@ -27,12 +33,19 @@ router.get("/info", (req, res) => {
     return res.status(404).json({ error: "Vault not found", id: vaultId });
   }
 
+  const pluginInstalled = await checkPluginInstalled(vaultPath);
+  const ignisMeta = await getIgnisMeta(vaultPath);
+
   res.json({
     id: vaultId,
     name: vaultId,
     path: vaultPath,
     platform: process.platform,
     version: config.obsidianVersion,
+    ignisPlugin: {
+      installed: pluginInstalled,
+      prompted: ignisMeta.pluginPrompted || false,
+    },
   });
 });
 
@@ -138,6 +151,44 @@ router.delete("/remove", async (req, res) => {
     config.refreshVaults();
 
     res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message, code: e.code });
+  }
+});
+
+// POST /api/vault/install-plugin { vault, dismiss } - install plugin or mark as prompted
+router.post("/install-plugin", async (req, res) => {
+  const vaultId = req.body?.vault;
+  const dismiss = req.body?.dismiss || false;
+
+  if (!vaultId) {
+    return res.status(400).json({ error: "Missing vault ID" });
+  }
+
+  const vaultPath = config.getVaultPath(vaultId);
+
+  if (!vaultPath) {
+    return res.status(404).json({ error: "Vault not found" });
+  }
+
+  try {
+    const meta = await getIgnisMeta(vaultPath);
+
+    if (dismiss) {
+      // User clicked "Don't Ask Again" or "Not Now"
+      meta.pluginPrompted = true;
+      await setIgnisMeta(vaultPath, meta);
+
+      return res.json({ ok: true, prompted: true });
+    } else {
+      // User wants to install the plugin
+      const installed = await installPluginInVault(vaultPath);
+
+      meta.pluginPrompted = true;
+      await setIgnisMeta(vaultPath, meta);
+
+      return res.json({ ok: true, installed, prompted: true });
+    }
   } catch (e) {
     res.status(500).json({ error: e.message, code: e.code });
   }

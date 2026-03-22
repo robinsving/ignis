@@ -16,6 +16,7 @@ import * as osShim from "./node/os.js";
 import * as netShim from "./node/net.js";
 import * as httpShim from "./node/http.js";
 import { vaultService } from "../services/vault-service.js";
+import { showPluginInstallDialog } from "../ui/bootstrap.js";
 
 const DEBUG = true;
 const _accessLog = new Map(); // "module.property" -> count
@@ -208,6 +209,8 @@ window.__currentVaultId =
         path: "/",
       };
 
+      window.__ignisPlugin = info.ignisPlugin || null;
+
       console.log("[ignis] Vault:", window.__vaultConfig);
       console.log("[ignis] Obsidian version:", window.__obsidianVersion);
     } else {
@@ -258,5 +261,26 @@ window.__currentVaultId =
 })();
 
 installRequestUrlShim();
+
+// Check if plugin install prompt is needed (once per session, after workspace loads)
+if (
+  window.__ignisPlugin &&
+  !window.__ignisPlugin.installed &&
+  !window.__ignisPlugin.prompted
+) {
+  const vaultId = window.__currentVaultId;
+
+  const observer = new MutationObserver(() => {
+    if (document.querySelector(".workspace")) {
+      observer.disconnect();
+      showPluginInstallDialog(vaultId);
+    }
+  });
+
+  observer.observe(document.documentElement, {
+    childList: true,
+    subtree: true,
+  });
+}
 
 console.log("[ignis] Shim loader initialized");
