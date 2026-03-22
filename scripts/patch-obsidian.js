@@ -6,6 +6,7 @@
 
 const fs = require("fs");
 const path = require("path");
+const { getVersion } = require("../server/version");
 
 const asarDir = process.argv[2];
 if (!asarDir) {
@@ -13,7 +14,7 @@ if (!asarDir) {
   process.exit(1);
 }
 
-function patchHtml(filePath) {
+function patchHtml(filePath, version) {
   const backupPath = filePath + ".orig";
 
   if (!fs.existsSync(filePath) && !fs.existsSync(backupPath)) {
@@ -46,8 +47,8 @@ function patchHtml(filePath) {
   // Inject ignis scripts before the first <script> tag
   html = html.replace(
     '<script type="text/javascript"',
-    '<script type="text/javascript" src="ignis-ui.js"></script>\n' +
-      '<script type="text/javascript" src="shim-loader.js"></script>\n' +
+    `<script type="text/javascript" src="ignis-ui.js?v=${version}"></script>\n` +
+      `<script type="text/javascript" src="shim-loader.js?v=${version}"></script>\n` +
       '<script type="text/javascript"',
   );
 
@@ -55,4 +56,6 @@ function patchHtml(filePath) {
   console.log(`[patch] Patched ${filePath}`);
 }
 
-patchHtml(path.join(asarDir, "index.html"));
+const version = getVersion();
+patchHtml(path.join(asarDir, "index.html"), version);
+console.log(`[patch] Injected version: ${version}`);

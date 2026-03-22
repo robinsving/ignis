@@ -72,6 +72,20 @@ app.use("/vault-files", (req, res, next) => {
   express.static(vaultPath)(req, res, next);
 });
 
+// Serve dist files with cache headers based on version param
+app.use((req, res, next) => {
+  if (req.path.match(/\/(ignis-ui|shim-loader)\.js$/)) {
+    if (req.query.v) {
+      // Versioned assets - cache for 1 year
+      res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+    } else {
+      // No version param - short cache for dev/fallback
+      res.setHeader("Cache-Control", "public, max-age=300");
+    }
+  }
+  next();
+});
+
 app.use(express.static(path.join(__dirname, "..", "dist")));
 
 app.use(express.static(config.obsidianAssetsPath));
