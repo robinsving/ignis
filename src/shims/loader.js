@@ -16,7 +16,7 @@ import * as osShim from "./node/os.js";
 import * as netShim from "./node/net.js";
 import * as httpShim from "./node/http.js";
 import { vaultService } from "../services/vault-service.js";
-import { showPluginInstallDialog } from "../ui/bootstrap.js";
+import { showPluginInstallDialog, showVaultManager } from "../ui/bootstrap.js";
 
 const DEBUG = true;
 const _accessLog = new Map(); // "module.property" -> count
@@ -135,6 +135,9 @@ if (typeof window.Buffer === "undefined") {
 
 window.close = function () {
   console.log("[ignis] window.close() blocked");
+  if (!window.__vaultConfig) {
+    showVaultManager();
+  }
 };
 
 window.__popupIframe = null;

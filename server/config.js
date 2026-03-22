@@ -32,8 +32,11 @@ function discoverVaults() {
     console.error("[config] Failed to read VAULT_ROOT:", vaultRoot, e.message);
   }
 
-  // Create a default vault if none exist
-  if (Object.keys(vaults).length === 0) {
+  // Optionally create a default vault if none exist
+  if (
+    Object.keys(vaults).length === 0 &&
+    process.env.AUTO_CREATE_DEFAULT === "true"
+  ) {
     const defaultPath = path.join(vaultRoot, "My Vault");
 
     try {
