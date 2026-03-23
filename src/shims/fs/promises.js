@@ -197,5 +197,48 @@ export function createFsPromises(metadataCache, contentCache, transport) {
         metadataCache.set(path, meta);
       }
     },
+
+    async open(path, flags) {
+      if (!metadataCache.has(path)) {
+        const err = new Error(
+          `ENOENT: no such file or directory, open '${path}'`,
+        );
+        err.code = "ENOENT";
+        throw err;
+      }
+
+      const data = await this.readFile(path);
+      const fileData =
+        typeof data === "string" ? new TextEncoder().encode(data) : data;
+
+      const fileStat = metadataCache.toStat(path) || {
+        size: fileData.length,
+        isFile: () => true,
+        isDirectory: () => false,
+      };
+
+      return {
+        async stat() {
+          return fileStat;
+        },
+
+        async read(buffer, offset, length, position) {
+          const available = Math.min(length, fileData.length - position);
+
+          if (available <= 0) {
+            return { bytesRead: 0, buffer };
+          }
+
+          const slice = fileData.subarray(position, position + available);
+          buffer.set(slice, offset);
+
+          return { bytesRead: available, buffer };
+        },
+
+        async close() {
+          // Nothing to clean up  -  data is in memory
+        },
+      };
+    },
   };
 }

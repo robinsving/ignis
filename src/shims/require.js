@@ -9,6 +9,7 @@ import * as eventsShim from "./node/events.js";
 import * as osShim from "./node/os.js";
 import * as netShim from "./node/net.js";
 import * as httpShim from "./node/http.js";
+import * as zlibShim from "./node/zlib.js";
 import { wrapWithProxy, installDebugHelpers } from "./debug.js";
 
 const rawRegistry = {
@@ -25,6 +26,7 @@ const rawRegistry = {
   net: netShim,
   http: httpShim,
   https: httpShim,
+  zlib: zlibShim,
 };
 
 const shimRegistry = {};

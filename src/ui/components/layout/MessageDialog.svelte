@@ -13,8 +13,8 @@
   let modalRef;
 
   function onConfirm() {
-    dispatch("confirm");
     modalRef.dismiss();
+    dispatch("confirm");
   }
 
   function onEscape() {
