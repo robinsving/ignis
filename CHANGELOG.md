@@ -2,7 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
-## [0.5.0] - (2026-03-22)
+## [0.6.0] - Slifer (2026-03-23)
+
+### Added
+
+- `zlib` shim using `pako` library for compression/decompression operations (deflate, inflate, gzip, gunzip, etc.)
+- File descriptor operations: `fs.open()`, `fs.read()`, `fs.close()`, `fs.fstat()` and sync variants
+- `fs.promises.open()` returning FileHandle objects with `stat()`, `read()`, `close()` methods
+- `showOpenDialog` electron dialog shim with browser file picker and vault upload
+- `showOpenDialogSync` hacky workaround using file staging registry and two-step upload flow
+- Enhanced `Buffer` shim with `alloc()`, `allocUnsafe()`, `byteLength()`, and `isEncoding()` methods
+
+### Fixed
+
+- `MessageDialog` modal dismiss error when confirm button clicked
+- Dialog shim modal event ordering to prevent null reference errors
+
+## [0.5.0] - Scatha (2026-03-22)
 
 ### Added
 
@@ -26,7 +42,7 @@ All notable changes to this project will be documented in this file.
 
 - Unused `VAULT_PATH` environment variable fallback logic
 
-## [0.4.0] - Basil (2026-03-18)
+## [0.4.0] - Gostir (2026-03-18)
 
 ### Added
 
