@@ -6,8 +6,29 @@ import {
 import { transport } from "../../fs/transport.js";
 
 const IMPORTS_DIR = ".obsidian/imports";
+const STAGED_TTL_MS = 120_000; // 2 minutes
 
-let stagedFiles = [];
+let staged = { paths: [], fingerprint: null, timestamp: 0 };
+
+function getCallerFingerprint() {
+  const stack = new Error().stack || "";
+  const frames = stack
+    .split("\n")
+    .filter((l) => !l.includes("shim-loader") && !l.includes("dialog.js"));
+  return frames.slice(0, 3).join("|");
+}
+
+function clearStagedFiles() {
+  if (staged.paths.length === 0) return;
+
+  console.log("[shim:dialog] Clearing expired staged files");
+
+  for (const p of staged.paths) {
+    transport.unlink(p.replace(/^\//, "")).catch(() => {});
+  }
+
+  staged = { paths: [], fingerprint: null, timestamp: 0 };
+}
 
 function buildAcceptString(filters) {
   if (!filters || filters.length === 0) {
@@ -61,7 +82,7 @@ async function uploadToImports(file) {
   return "/" + targetPath;
 }
 
-async function startWorkaroundFlow(options) {
+async function startWorkaroundFlow(options, fingerprint) {
   const properties = options?.properties || [];
   const multiple = properties.includes("multiSelections");
   const accept = buildAcceptString(options?.filters);
@@ -79,11 +100,11 @@ async function startWorkaroundFlow(options) {
     paths.push(vaultPath);
   }
 
-  stagedFiles = paths;
+  staged = { paths, fingerprint, timestamp: Date.now() };
 
   const names = paths.map((p) => p.split("/").pop()).join(", ");
 
-  console.log("[shim:dialog] Files staged for next sync call:", paths);
+  console.log("[shim:dialog] Files staged for caller:", fingerprint);
 
   await showMessageDialog(
     "Files Ready",
@@ -126,20 +147,41 @@ export const dialogShim = {
       options = browserWindow;
     }
 
-    // If files were staged from a previous workaround, return them immediately
-    if (stagedFiles.length > 0) {
-      const paths = stagedFiles;
-      stagedFiles = [];
-      console.log(
-        "[shim:dialog] showOpenDialogSync  -  returning staged files:",
-        paths,
-      );
-      return paths;
+    // If files were staged from a previous workaround, validate and return them
+    if (staged.paths.length > 0) {
+      const elapsed = Date.now() - staged.timestamp;
+      const fingerprint = getCallerFingerprint();
+      const fingerprintMatch = fingerprint === staged.fingerprint;
+      const expired = elapsed > STAGED_TTL_MS;
+
+      if (expired) {
+        console.warn("[shim:dialog] Staged files expired after", elapsed, "ms");
+        clearStagedFiles();
+      } else if (!fingerprintMatch) {
+        console.warn(
+          "[shim:dialog] Staged files caller mismatch  -  ignoring",
+          "\n  expected:",
+          staged.fingerprint,
+          "\n  got:",
+          fingerprint,
+        );
+      } else {
+        const paths = staged.paths;
+        staged = { paths: [], fingerprint: null, timestamp: 0 };
+        console.log(
+          "[shim:dialog] showOpenDialogSync  -  returning staged files:",
+          paths,
+        );
+        return paths;
+      }
     }
 
     console.warn(
       "[shim:dialog] showOpenDialogSync requires workaround in browser context",
     );
+
+    // Capture fingerprint here where the plugin's call stack is still visible
+    const callerFingerprint = getCallerFingerprint();
 
     // Fire-and-forget: show warning, then optionally start workaround flow
     showConfirmDialog(
@@ -150,7 +192,7 @@ export const dialogShim = {
       "Upload File",
     ).then((confirmed) => {
       if (confirmed) {
-        startWorkaroundFlow(options);
+        startWorkaroundFlow(options, callerFingerprint);
       }
     });
 
