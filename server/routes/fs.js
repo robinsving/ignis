@@ -279,9 +279,12 @@ router.delete("/unlink", async (req, res) => {
 
     res.json({ ok: true });
   } catch (e) {
-    const status = e.code === "ENOENT" ? 404 : 500;
-
-    res.status(status).json({ error: e.message, code: e.code });
+    if (e.code === "ENOENT") {
+      // File already gone  -  desired outcome achieved
+      res.json({ ok: true });
+    } else {
+      res.status(500).json({ error: e.message, code: e.code });
+    }
   }
 });
 

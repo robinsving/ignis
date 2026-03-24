@@ -11,29 +11,65 @@ export function createFsWatch(transport) {
       if (!watchers.has(path)) {
         watchers.set(path, new Set());
       }
-      watchers.get(path).add(listener);
 
-      // TODO: send watch subscription to server via transport
+      // Wrapper that holds both direct listener and .on() listeners
+      const entry = {
+        direct: typeof listener === "function" ? listener : null,
+        eventListeners: new Map(), // event name -> Set<fn>
+        call(eventType, filename) {
+          if (this.direct) {
+            this.direct(eventType, filename);
+          }
+          const fns = this.eventListeners.get("change");
+          if (fns) {
+            for (const fn of fns) {
+              try {
+                fn(eventType, filename);
+              } catch (e) {
+                console.error("[shim:fs:watch] Listener error:", e);
+              }
+            }
+          }
+        },
+      };
+
+      watchers.get(path).add(entry);
 
       // Return a watcher-like object
       return {
         close() {
           const set = watchers.get(path);
           if (set) {
-            set.delete(listener);
+            set.delete(entry);
+
             if (set.size === 0) {
               watchers.delete(path);
-              // TODO: send unwatch to server
             }
           }
         },
-        on() {
+        on(event, fn) {
+          if (!entry.eventListeners.has(event)) {
+            entry.eventListeners.set(event, new Set());
+          }
+
+          entry.eventListeners.get(event).add(fn);
+
           return this;
         },
-        once() {
-          return this;
+        once(event, fn) {
+          const wrapped = (...args) => {
+            this.removeListener(event, wrapped);
+            fn(...args);
+          };
+
+          return this.on(event, wrapped);
         },
-        removeListener() {
+        removeListener(event, fn) {
+          const fns = entry.eventListeners.get(event);
+
+          if (fns) {
+            fns.delete(fn);
+          }
           return this;
         },
       };
@@ -41,12 +77,27 @@ export function createFsWatch(transport) {
 
     // Internal: called when transport receives a file-change event
     _dispatch(eventType, filePath) {
+      const normFile = (filePath || "").replace(/^\/+/, "");
+      let matched = false;
+
       for (const [watchPath, listeners] of watchers) {
-        if (filePath === watchPath || filePath.startsWith(watchPath + "/")) {
-          const relativeName = filePath.slice(watchPath.length + 1) || filePath;
-          for (const fn of listeners) {
+        const normWatch = (watchPath || "").replace(/^\/+/, "");
+        // Empty normWatch means root watcher  -  matches everything
+        const isMatch =
+          normWatch === "" ||
+          normFile === normWatch ||
+          normFile.startsWith(normWatch + "/");
+
+        if (isMatch) {
+          matched = true;
+          const relativeName =
+            normWatch === ""
+              ? normFile
+              : normFile.slice(normWatch.length + 1) || normFile;
+
+          for (const entry of listeners) {
             try {
-              fn(eventType, relativeName);
+              entry.call(eventType, relativeName);
             } catch (e) {
               console.error("[shim:fs:watch] Listener error:", e);
             }

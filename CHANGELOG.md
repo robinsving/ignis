@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.2] - Slifer (2026-03-24)
+
+### Added
+
+- File watcher system with WebSocket-based live sync for external vault changes
+- Real-time detection of file create, modify, delete, and rename operations
+- Echo guard to suppress events from local operations (prevents feedback loops)
+- Automatic reconnection with exponential backoff for WebSocket client
+
 ## [0.6.1] - Slifer (2026-03-24)
 
 ### Added
