@@ -3,11 +3,11 @@ const fs = require("fs");
 const config = require("../config");
 const path = require("path");
 const {
-  checkPluginInstalled,
+  isBridgePluginInstalled,
   getIgnisMeta,
   setIgnisMeta,
-  installPluginInVault,
-} = require("../install-plugin");
+  installBridgePlugin,
+} = require("../bridge-plugin");
 
 const router = express.Router();
 
@@ -33,7 +33,7 @@ router.get("/info", async (req, res) => {
     return res.status(404).json({ error: "Vault not found", id: vaultId });
   }
 
-  const pluginInstalled = await checkPluginInstalled(vaultPath);
+  const pluginInstalled = await isBridgePluginInstalled(vaultPath);
   const ignisMeta = await getIgnisMeta(vaultPath);
 
   res.json({
@@ -65,30 +65,7 @@ router.post("/create", async (req, res) => {
       recursive: false,
     });
 
-    // Install ignis-bridge plugin
-    const pluginDir = path.join(
-      vaultPath,
-      ".obsidian",
-      "plugins",
-      "ignis-bridge",
-    );
-    await fs.promises.mkdir(pluginDir, { recursive: true });
-
-    const pluginSrcDir = path.join(__dirname, "..", "..", "plugin");
-    await fs.promises.copyFile(
-      path.join(pluginSrcDir, "manifest.json"),
-      path.join(pluginDir, "manifest.json"),
-    );
-    await fs.promises.copyFile(
-      path.join(pluginSrcDir, "main.js"),
-      path.join(pluginDir, "main.js"),
-    );
-
-    // Enable the plugin
-    await fs.promises.writeFile(
-      path.join(vaultPath, ".obsidian", "community-plugins.json"),
-      JSON.stringify(["ignis-bridge"]),
-    );
+    await installBridgePlugin(vaultPath);
 
     config.refreshVaults();
 
@@ -182,7 +159,7 @@ router.post("/install-plugin", async (req, res) => {
       return res.json({ ok: true, prompted: true });
     } else {
       // User wants to install the plugin
-      const installed = await installPluginInVault(vaultPath);
+      const installed = await installBridgePlugin(vaultPath);
 
       meta.pluginPrompted = true;
       await setIgnisMeta(vaultPath, meta);

@@ -3,7 +3,8 @@ const path = require("path");
 const compression = require("compression");
 const config = require("./config");
 const { setupWebSocket } = require("./ws");
-const { installPluginInAllVaults } = require("./install-plugin");
+const watcher = require("./watcher");
+const { updateBridgePluginInAllVaults } = require("./bridge-plugin");
 
 const ANSI_RED = "\x1b[31m";
 const ANSI_YELLOW = "\x1b[33m";
@@ -97,7 +98,26 @@ const server = app.listen(config.port, async () => {
   console.log(`[ignis] Vault root: ${config.vaultRoot}`);
   console.log(`[ignis] Vaults: ${Object.keys(config.vaults).join(", ")}`);
 
-  await installPluginInAllVaults(config.vaultRoot);
+  await updateBridgePluginInAllVaults(config.vaultRoot);
 });
 
-setupWebSocket(server);
+const wss = setupWebSocket(server);
+
+async function gracefulShutdown(signal) {
+  console.log(`\n[ignis] Received ${signal}, shutting down gracefully...`);
+
+  await shutdownPlugins();
+
+  server.close(() => {
+    console.log("[ignis] Server closed");
+    process.exit(0);
+  });
+
+  setTimeout(() => {
+    console.error("[ignis] Forced shutdown after timeout");
+    process.exit(1);
+  }, 10000);
+}
+
+process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
+process.on("SIGINT", () => gracefulShutdown("SIGINT"));
