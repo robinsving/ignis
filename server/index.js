@@ -5,6 +5,8 @@ const config = require("./config");
 const { setupWebSocket } = require("./ws");
 const watcher = require("./watcher");
 const { updateBridgePluginInAllVaults } = require("./bridge-plugin");
+const { initPlugins, shutdownPlugins } = require("./plugin-system/manager");
+const pluginRoutes = require("./routes/plugins");
 
 const ANSI_RED = "\x1b[31m";
 const ANSI_YELLOW = "\x1b[33m";
@@ -52,6 +54,7 @@ app.use("/api/fs", fsRoutes);
 app.use("/api/vault", vaultRoutes);
 app.use("/api/proxy", proxyRoutes);
 app.use("/api/version", versionRoutes);
+app.use("/api/plugins", pluginRoutes);
 
 // Serve vault files for resource URLs (images, attachments, etc.)
 // Vault ID is the first path segment: /vault-files/<vault-id>/path/to/file
@@ -99,6 +102,7 @@ const server = app.listen(config.port, async () => {
   console.log(`[ignis] Vaults: ${Object.keys(config.vaults).join(", ")}`);
 
   await updateBridgePluginInAllVaults(config.vaultRoot);
+  await initPlugins({ app, config, wss, watcher });
 });
 
 const wss = setupWebSocket(server);

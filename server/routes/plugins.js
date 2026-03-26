@@ -1,0 +1,44 @@
+const express = require("express");
+const {
+  getDiscoveredPlugins,
+  enablePluginForVault,
+  disablePluginForVault,
+} = require("../plugin-system/manager");
+
+const router = express.Router();
+
+router.get("/", (req, res) => {
+  res.json(getDiscoveredPlugins());
+});
+
+router.post("/:pluginId/enable", async (req, res) => {
+  const vaultId = req.body?.vault;
+
+  if (!vaultId) {
+    return res.status(400).json({ error: "Missing vault ID" });
+  }
+
+  try {
+    await enablePluginForVault(req.params.pluginId, vaultId);
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+router.post("/:pluginId/disable", async (req, res) => {
+  const vaultId = req.body?.vault;
+
+  if (!vaultId) {
+    return res.status(400).json({ error: "Missing vault ID" });
+  }
+
+  try {
+    await disablePluginForVault(req.params.pluginId, vaultId);
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+module.exports = router;

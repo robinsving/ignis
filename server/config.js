@@ -6,11 +6,20 @@ const fs = require("fs");
 const vaultRoot =
   process.env.VAULT_ROOT || path.join(__dirname, "..", "vaults");
 
-// Ensure vault root exists
+const dataRoot =
+  process.env.DATA_ROOT || path.join(__dirname, "..", "data");
+
+// Ensure required directories exist
 try {
   fs.mkdirSync(vaultRoot, { recursive: true });
 } catch (e) {
   console.error("[config] Failed to create VAULT_ROOT:", vaultRoot, e.message);
+}
+
+try {
+  fs.mkdirSync(dataRoot, { recursive: true });
+} catch (e) {
+  console.error("[config] Failed to create DATA_ROOT:", dataRoot, e.message);
 }
 
 function discoverVaults() {
@@ -52,6 +61,7 @@ let vaults = discoverVaults();
 module.exports = {
   port: process.env.PORT || 8080,
   vaultRoot,
+  dataRoot,
   get vaults() {
     return vaults;
   },
