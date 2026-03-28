@@ -4,6 +4,15 @@ function getVaultId() {
   return window.__currentVaultId || "";
 }
 
+async function refreshPluginCache(bundledPluginId) {
+  const pluginPath = `.obsidian/plugins/${bundledPluginId}`;
+  const fs = require("fs");
+
+  if (fs._refreshSubtree) {
+    await fs._refreshSubtree(pluginPath);
+  }
+}
+
 async function fetchPlugins() {
   const res = await fetch("/api/plugins");
 
@@ -84,6 +93,11 @@ function display(containerEl, app) {
             toggle.onChange(async (value) => {
               try {
                 await togglePlugin(plugin.id, value, app);
+
+                if (value && plugin.bundledPluginId) {
+                  await refreshPluginCache(plugin.bundledPluginId);
+                }
+
                 await activateBundledPlugin(
                   plugin.bundledPluginId,
                   value,

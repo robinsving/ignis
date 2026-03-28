@@ -40,6 +40,35 @@ Promise.all([
     format: "cjs",
     platform: "browser",
     target: ["chrome90"],
+    external: ["obsidian", "fs"],
+    logLevel: "info",
+  }),
+
+  // Build headless-sync bundled plugin
+  esbuild.build({
+    entryPoints: [
+      path.join(
+        __dirname,
+        "server",
+        "plugins",
+        "headless-sync",
+        "plugin",
+        "src",
+        "main.js",
+      ),
+    ],
+    bundle: true,
+    outfile: path.join(
+      __dirname,
+      "server",
+      "plugins",
+      "headless-sync",
+      "plugin",
+      "main.js",
+    ),
+    format: "cjs",
+    platform: "browser",
+    target: ["chrome90"],
     external: ["obsidian"],
     logLevel: "info",
   }),
