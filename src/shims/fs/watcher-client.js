@@ -25,6 +25,7 @@ export function createWatcherClient(metadataCache, contentCache, fsWatch) {
 
     try {
       ws = new WebSocket(url);
+      window.__ignisWs = ws;
     } catch (e) {
       console.error("[watcher] Failed to create WebSocket:", e);
       scheduleReconnect();

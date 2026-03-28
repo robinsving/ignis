@@ -50,6 +50,8 @@ const vaultRoutes = require("./routes/vault");
 const proxyRoutes = require("./routes/proxy");
 const versionRoutes = require("./routes/version");
 
+app.use("/assets", express.static(path.join(__dirname, "assets")));
+
 app.use("/api/fs", fsRoutes);
 app.use("/api/vault", vaultRoutes);
 app.use("/api/proxy", proxyRoutes);

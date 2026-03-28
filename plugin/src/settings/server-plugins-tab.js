@@ -48,7 +48,14 @@ async function activateBundledPlugin(bundledPluginId, enable, app) {
 }
 
 function display(containerEl, app) {
-  containerEl.createEl("h2", { text: "Server Plugins" });
+  containerEl.createEl("h2", { text: "Ignis Core Plugins" });
+
+  const descEl = containerEl.createEl("p", {
+    text:
+      "Ignis plugins extend server functionality and run alongside your vaults. " +
+      "They are separate from Obsidian's built-in plugins.",
+    cls: "ignis-plugins-description",
+  });
 
   const loadingEl = containerEl.createEl("p", { text: "Loading plugins..." });
 

@@ -41,30 +41,44 @@ function createTab(id, name, displayFn, app) {
   return tab;
 }
 
-function injectIgnisSettings(setting, app) {
+function createGroup(name) {
   const group = document.createElement("div");
   group.className = "vertical-tab-header-group";
 
   const title = document.createElement("div");
   title.className = "vertical-tab-header-group-title";
-  title.textContent = "Ignis";
+  title.textContent = name;
   group.appendChild(title);
 
   const items = document.createElement("div");
   items.className = "vertical-tab-header-group-items";
   group.appendChild(items);
 
+  return { group, items };
+}
+
+function injectIgnisSettings(setting, app) {
+  const ignis = createGroup("Ignis");
+
   const tabs = [
     createTab("ignis-general", "General", generalTab.display, app),
-    createTab("ignis-server-plugins", "Server Plugins", serverPluginsTab.display, app),
+    createTab(
+      "ignis-core-plugins",
+      "Core plugins",
+      serverPluginsTab.display,
+      app,
+    ),
   ];
 
   for (const tab of tabs) {
     tab.navEl = createNavEl(tab, setting);
-    items.appendChild(tab.navEl);
+    ignis.items.appendChild(tab.navEl);
   }
 
-  setting.tabHeadersEl.appendChild(group);
+  setting.tabHeadersEl.appendChild(ignis.group);
+
+  const corePlugins = createGroup("Ignis Core Plugins");
+  setting.tabHeadersEl.appendChild(corePlugins.group);
 }
 
 function patchSettingsModal(plugin) {
