@@ -2,6 +2,7 @@ const { Plugin, TFile, TFolder } = require("obsidian");
 const { showFilePicker, addFileMenuItems, addFolderMenuItems } = require("./file-actions");
 const { patchSettingsModal, unpatchSettingsModal } = require("./settings/inject");
 const pluginRegistry = require("./plugin-registry");
+const { initStatusBar } = require("./status-bar");
 
 window.__obsidianAPI = require("obsidian");
 
@@ -11,6 +12,7 @@ class IgnisBridgePlugin extends Plugin {
 
     await pluginRegistry.refresh();
     patchSettingsModal(this);
+    this._statusBarInterval = initStatusBar(this);
 
     this.addRibbonIcon("upload", "Upload file", () => {
       showFilePicker(this.app);
@@ -28,6 +30,10 @@ class IgnisBridgePlugin extends Plugin {
   }
 
   onunload() {
+    if (this._statusBarInterval) {
+      clearInterval(this._statusBarInterval);
+    }
+
     unpatchSettingsModal(this);
     console.log("[ignis-bridge] Plugin unloaded");
   }

@@ -105,6 +105,31 @@
   color: var(--text-muted);
 }
 
+.ignis-statusbar-item {
+  display: flex;
+  align-items: center;
+  cursor: default;
+}
+
+.ignis-statusbar-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.ignis-statusbar-connected {
+  background-color: var(--color-green);
+}
+
+.ignis-statusbar-connecting {
+  background-color: var(--color-yellow);
+}
+
+.ignis-statusbar-disconnected {
+  background-color: var(--color-red);
+}
+
 .ignis-plugins-description {
   padding: 0 16px;
   color: var(--text-muted);
