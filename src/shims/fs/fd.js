@@ -2,11 +2,26 @@
 // Enables libraries like yauzl that use fs.open/fs.read/fs.close to seek
 // around files without loading them via readFileSync upfront.
 
+import { isInputCachePath, inputCacheGet } from "./input-cache.js";
+
 let nextFd = 100;
 const openFiles = new Map();
 
 export function createFdOps(metadataCache, contentCache, transport) {
   function ensureData(path) {
+    // Check input cache first for files picked via browser file dialogs.
+    if (isInputCachePath(path)) {
+      const inputData = inputCacheGet(path);
+
+      if (inputData !== null) {
+        if (typeof inputData === "string") {
+          return new TextEncoder().encode(inputData);
+        }
+
+        return inputData;
+      }
+    }
+
     const cached = contentCache.get(path);
 
     if (cached !== null) {
@@ -40,7 +55,9 @@ export function createFdOps(metadataCache, contentCache, transport) {
   // --- Sync ---
 
   function openSync(path, flags, mode) {
-    if (!metadataCache.has(path)) {
+    const hasInCache = isInputCachePath(path) && inputCacheGet(path) !== null;
+
+    if (!hasInCache && !metadataCache.has(path)) {
       const err = new Error(
         `ENOENT: no such file or directory, open '${path}'`,
       );

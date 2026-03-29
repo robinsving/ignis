@@ -3,7 +3,7 @@ import {
   showConfirmDialog,
   showPromptDialog,
 } from "../../../ui/bootstrap.js";
-import { transport } from "../../fs/transport.js";
+import { inputCacheSet, inputCacheDelete } from "../../fs/input-cache.js";
 
 const IMPORTS_DIR = ".obsidian/imports";
 const STAGED_TTL_MS = 120_000; // 2 minutes
@@ -24,7 +24,7 @@ function clearStagedFiles() {
   console.log("[shim:dialog] Clearing expired staged files");
 
   for (const p of staged.paths) {
-    transport.unlink(p.replace(/^\//, "")).catch(() => {});
+    inputCacheDelete(p.replace(/^\//, ""));
   }
 
   staged = { paths: [], fingerprint: null, timestamp: 0 };
@@ -72,12 +72,12 @@ function pickFiles(accept, multiple) {
   });
 }
 
-async function uploadToImports(file) {
+async function cacheToImports(file) {
   const arrayBuffer = await file.arrayBuffer();
   const bytes = new Uint8Array(arrayBuffer);
   const targetPath = IMPORTS_DIR + "/" + file.name;
 
-  await transport.writeFile(targetPath, bytes);
+  inputCacheSet(targetPath, bytes);
 
   return "/" + targetPath;
 }
@@ -96,7 +96,7 @@ async function startWorkaroundFlow(options, fingerprint) {
   const paths = [];
 
   for (const file of files) {
-    const vaultPath = await uploadToImports(file);
+    const vaultPath = await cacheToImports(file);
     paths.push(vaultPath);
   }
 
@@ -108,7 +108,7 @@ async function startWorkaroundFlow(options, fingerprint) {
 
   await showMessageDialog(
     "Files Ready",
-    `Uploaded: ${names}\n\nPlease retry the action that brought you here. ` +
+    `Staged: ${names}\n\nPlease retry the action that brought you here. ` +
       "The files will be provided automatically.",
   );
 }
@@ -134,11 +134,11 @@ export const dialogShim = {
     const filePaths = [];
 
     for (const file of files) {
-      const vaultPath = await uploadToImports(file);
+      const vaultPath = await cacheToImports(file);
       filePaths.push(vaultPath);
     }
 
-    console.log("[shim:dialog] showOpenDialog  -  uploaded:", filePaths);
+    console.log("[shim:dialog] showOpenDialog  -  cached:", filePaths);
     return { canceled: false, filePaths };
   },
 
@@ -187,9 +187,10 @@ export const dialogShim = {
     showConfirmDialog(
       "Feature Not Available",
       "This action requires a native file picker which is not available in the browser.",
-      "A workaround is available: upload your file first, then retry the action. " +
-        "Would you like to proceed?",
-      "Upload File",
+      "A workaround is available: select your files first, then retry the action. " +
+        "They will be provided automatically.\n\n" +
+        "Note: individual files must be under 200 MB.",
+      "Select Files",
     ).then((confirmed) => {
       if (confirmed) {
         startWorkaroundFlow(options, callerFingerprint);

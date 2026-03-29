@@ -1,4 +1,5 @@
 import { markLocalOp } from "./echo-guard.js";
+import { isInputCachePath, inputCacheGet } from "./input-cache.js";
 
 export function createFsPromises(metadataCache, contentCache, transport) {
   return {
@@ -44,6 +45,25 @@ export function createFsPromises(metadataCache, contentCache, transport) {
       }
 
       const wantText = encoding === "utf8" || encoding === "utf-8";
+
+      // Check input cache for files picked via browser file dialogs.
+      if (isInputCachePath(path)) {
+        const inputData = inputCacheGet(path);
+
+        if (inputData !== null) {
+          if (wantText) {
+            return typeof inputData === "string"
+              ? inputData
+              : new TextDecoder().decode(inputData);
+          }
+
+          if (typeof inputData === "string") {
+            return new TextEncoder().encode(inputData);
+          }
+
+          return inputData;
+        }
+      }
 
       const meta = metadataCache.get(path);
       if (meta && meta.type === "directory") {
@@ -210,7 +230,9 @@ export function createFsPromises(metadataCache, contentCache, transport) {
     },
 
     async open(path, flags) {
-      if (!metadataCache.has(path)) {
+      const hasInCache = isInputCachePath(path) && inputCacheGet(path) !== null;
+
+      if (!hasInCache && !metadataCache.has(path)) {
         const err = new Error(
           `ENOENT: no such file or directory, open '${path}'`,
         );
