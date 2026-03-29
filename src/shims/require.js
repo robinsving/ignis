@@ -10,6 +10,7 @@ import * as osShim from "./node/os.js";
 import * as netShim from "./node/net.js";
 import * as httpShim from "./node/http.js";
 import * as zlibShim from "./node/zlib.js";
+import * as utilShim from "./node/util.js";
 import { wrapWithProxy, installDebugHelpers } from "./debug.js";
 
 const rawRegistry = {
@@ -27,6 +28,7 @@ const rawRegistry = {
   http: httpShim,
   https: httpShim,
   zlib: zlibShim,
+  util: utilShim,
 };
 
 const shimRegistry = {};
