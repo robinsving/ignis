@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.2] - Orm (2026-03-29)
+
+### Added
+
+- utils shim
+
+### Fixed
+
+- right sidebar toggle with css overrides
+- clipboard functionality
+
 ## [0.7.1] - Orm (2026-03-29)
 
 ### Added

@@ -1,7 +1,7 @@
 {
   "id": "ignis-bridge",
   "name": "Ignis Bridge",
-  "version": "0.7.1",
+  "version": "0.7.2",
   "minAppVersion": "1.12.4",
   "description": "Additional Ignis specific functionality and ignis plugin management.",
   "author": "Nystik",

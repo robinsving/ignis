@@ -196,10 +196,58 @@ const currentWebContents = {
     document.execCommand("copy");
   },
   paste() {
-    document.execCommand("paste");
+    navigator.clipboard
+      .read()
+      .then(async (items) => {
+        const dt = new DataTransfer();
+        let hasFiles = false;
+
+        for (const item of items) {
+          for (const type of item.types) {
+            const blob = await item.getType(type);
+
+            if (type.startsWith("text/")) {
+              const text = await blob.text();
+              dt.items.add(text, type);
+            } else {
+              const ext = type.split("/")[1] || "bin";
+              dt.items.add(
+                new File([blob], `pasted-image.${ext}`, { type }),
+              );
+              hasFiles = true;
+            }
+          }
+        }
+
+        const pasteEvent = new ClipboardEvent("paste", {
+          bubbles: true,
+          cancelable: true,
+          clipboardData: dt,
+        });
+
+        const target = document.activeElement || document.body;
+        target.dispatchEvent(pasteEvent);
+      })
+      .catch((e) => {
+        console.warn("[shim:webContents] paste failed:", e);
+      });
   },
   pasteAndMatchStyle() {
-    document.execCommand("paste");
+    navigator.clipboard
+      .read()
+      .then(async (items) => {
+        for (const item of items) {
+          if (item.types.includes("text/plain")) {
+            const blob = await item.getType("text/plain");
+            const text = await blob.text();
+            document.execCommand("insertText", false, text);
+            return;
+          }
+        }
+      })
+      .catch((e) => {
+        console.warn("[shim:webContents] pasteAndMatchStyle failed:", e);
+      });
   },
   replaceMisspelling(word) {},
 

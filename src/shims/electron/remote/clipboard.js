@@ -1,4 +1,3 @@
-// stub
 export const clipboardShim = {
   readText() {
     return "";
@@ -15,7 +14,16 @@ export const clipboardShim = {
   },
 
   writeHTML(html) {
-    console.log("[shim:clipboard] writeHTML (stub)");
+    navigator.clipboard
+      .write([
+        new ClipboardItem({
+          "text/html": new Blob([html], { type: "text/html" }),
+          "text/plain": new Blob([html], { type: "text/plain" }),
+        }),
+      ])
+      .catch((e) => {
+        console.warn("[shim:clipboard] writeHTML failed:", e);
+      });
   },
 
   readImage() {
@@ -23,7 +31,23 @@ export const clipboardShim = {
   },
 
   writeImage(image) {
-    console.log("[shim:clipboard] writeImage (stub)");
+    if (!image || image.isEmpty()) {
+      return;
+    }
+
+    const pngData = image.toPNG();
+
+    if (!pngData || pngData.length === 0) {
+      return;
+    }
+
+    const blob = new Blob([pngData], { type: "image/png" });
+
+    navigator.clipboard
+      .write([new ClipboardItem({ "image/png": blob })])
+      .catch((e) => {
+        console.warn("[shim:clipboard] writeImage failed:", e);
+      });
   },
 
   has(format) {
