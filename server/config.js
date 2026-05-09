@@ -6,8 +6,7 @@ const fs = require("fs");
 const vaultRoot =
   process.env.VAULT_ROOT || path.join(__dirname, "..", "vaults");
 
-const dataRoot =
-  process.env.DATA_ROOT || path.join(__dirname, "..", "data");
+const dataRoot = process.env.DATA_ROOT || path.join(__dirname, "..", "data");
 
 // Ensure required directories exist
 try {
@@ -75,7 +74,10 @@ module.exports = {
     vaults = discoverVaults();
     return vaults;
   },
-  writeCoalesceMs: parseInt(process.env.WRITE_COALESCE_MS) || 5000,
+  writeCoalesceMs:
+    process.env.WRITE_COALESCE_MS !== undefined
+      ? parseInt(process.env.WRITE_COALESCE_MS)
+      : 5000,
 
   obsidianAssetsPath:
     process.env.OBSIDIAN_ASSETS_PATH ||
