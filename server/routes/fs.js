@@ -4,6 +4,7 @@ const path = require("path");
 const archiver = require("archiver");
 const config = require("../config");
 const { writeCoalesced, getPending } = require("../write-coalescer");
+const bootstrapRoutes = require("./bootstrap");
 
 const router = express.Router();
 
@@ -64,7 +65,15 @@ function getVaultRoot(req, res) {
     res.status(404).json({ error: "Vault not found", id: vaultId });
     return null;
   }
+
+  req._vaultId = vaultId;
   return vaultPath;
+}
+
+function invalidateBootstrap(req) {
+  if (req._vaultId) {
+    bootstrapRoutes.invalidateVault(req._vaultId);
+  }
 }
 
 // Resolve a client-provided path to an absolute path within a vault.
@@ -258,6 +267,7 @@ router.post("/writeFile", async (req, res) => {
 
     const result = await writeCoalesced(resolved, data, encoding);
 
+    invalidateBootstrap(req);
     res.json({ ok: true, mtime: result.mtime, size: result.size });
   } catch (e) {
     res.status(500).json({ error: e.message, code: e.code });
@@ -275,6 +285,7 @@ router.post("/appendFile", async (req, res) => {
   try {
     await fs.promises.appendFile(resolved, req.body.content, "utf-8");
 
+    invalidateBootstrap(req);
     res.json({ ok: true });
   } catch (e) {
     res.status(500).json({ error: e.message, code: e.code });
@@ -294,6 +305,7 @@ router.post("/mkdir", async (req, res) => {
       recursive: !!req.body.recursive,
     });
 
+    invalidateBootstrap(req);
     res.json({ ok: true });
   } catch (e) {
     res.status(500).json({ error: e.message, code: e.code });
@@ -318,6 +330,7 @@ router.post("/rename", async (req, res) => {
   try {
     await fs.promises.rename(oldResolved, newResolved);
 
+    invalidateBootstrap(req);
     res.json({ ok: true });
   } catch (e) {
     res.status(500).json({ error: e.message, code: e.code });
@@ -342,6 +355,7 @@ router.post("/copyFile", async (req, res) => {
   try {
     await fs.promises.copyFile(srcResolved, destResolved);
 
+    invalidateBootstrap(req);
     res.json({ ok: true });
   } catch (e) {
     res.status(500).json({ error: e.message, code: e.code });
@@ -359,6 +373,7 @@ router.delete("/unlink", async (req, res) => {
   try {
     await fs.promises.unlink(resolved);
 
+    invalidateBootstrap(req);
     res.json({ ok: true });
   } catch (e) {
     if (e.code === "ENOENT") {
@@ -381,6 +396,7 @@ router.delete("/rmdir", async (req, res) => {
   try {
     await fs.promises.rmdir(resolved);
 
+    invalidateBootstrap(req);
     res.json({ ok: true });
   } catch (e) {
     res.status(500).json({ error: e.message, code: e.code });
@@ -399,6 +415,8 @@ router.delete("/rm", async (req, res) => {
     await fs.promises.rm(resolved, {
       recursive: req.query.recursive === "true",
     });
+
+    invalidateBootstrap(req);
     res.json({ ok: true });
   } catch (e) {
     res.status(500).json({ error: e.message, code: e.code });
@@ -453,6 +471,8 @@ router.post("/utimes", async (req, res) => {
       req.body.atime / 1000,
       req.body.mtime / 1000,
     );
+
+    invalidateBootstrap(req);
     res.json({ ok: true });
   } catch (e) {
     res.status(500).json({ error: e.message, code: e.code });

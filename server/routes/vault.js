@@ -8,6 +8,7 @@ const {
   setIgnisMeta,
   installBridgePlugin,
 } = require("../bridge-plugin");
+const bootstrapRoutes = require("./bootstrap");
 
 const router = express.Router();
 
@@ -68,6 +69,7 @@ router.post("/create", async (req, res) => {
     await installBridgePlugin(vaultPath);
 
     config.refreshVaults();
+    bootstrapRoutes.invalidateVault(name);
 
     res.json({ ok: true, id: name, path: vaultPath });
   } catch (e) {
@@ -100,6 +102,8 @@ router.post("/rename", async (req, res) => {
     await fs.promises.rename(vaultPath, newPath);
 
     config.refreshVaults();
+    bootstrapRoutes.invalidateVault(vaultId);
+    bootstrapRoutes.invalidateVault(newName);
 
     res.json({ ok: true, id: newName, path: newPath });
   } catch (e) {
@@ -126,6 +130,7 @@ router.delete("/remove", async (req, res) => {
     await fs.promises.rm(vaultPath, { recursive: true });
 
     config.refreshVaults();
+    bootstrapRoutes.invalidateVault(vaultId);
 
     res.json({ ok: true });
   } catch (e) {

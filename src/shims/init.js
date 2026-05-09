@@ -12,7 +12,62 @@ function resolveVaultId() {
   window.__workspaceName = urlParams.get("workspace") || "";
 }
 
-function initVaultConfig() {
+// Single round-trip bootstrap: vault info + vault list + metadata tree + plugins.
+// Returns the parsed response, or null if the call failed (no vault, network error, etc.)
+function fetchBootstrap() {
+  if (!window.__currentVaultId) {
+    return null;
+  }
+
+  try {
+    const xhr = new XMLHttpRequest();
+
+    xhr.open(
+      "GET",
+      "/api/bootstrap?vault=" + encodeURIComponent(window.__currentVaultId),
+      false,
+    );
+    xhr.send();
+
+    if (xhr.status === 200) {
+      return JSON.parse(xhr.responseText);
+    }
+  } catch (e) {
+    console.warn("[ignis] Bootstrap fetch failed:", e);
+  }
+
+  return null;
+}
+
+function applyVaultInfo(info) {
+  window.__currentVaultId = info.id;
+  localStorage.setItem("last-vault", info.id);
+  window.__obsidianVersion = info.version || "0.0.0";
+
+  window.__vaultConfig = {
+    id: info.id,
+    path: "/",
+  };
+
+  window.__ignisPlugin = info.ignisPlugin || null;
+
+  console.log("[ignis] Vault:", window.__vaultConfig);
+  console.log("[ignis] Obsidian version:", window.__obsidianVersion);
+}
+
+function applyTree(tree) {
+  fsShim._metadataCache.populate(tree);
+  fsShim._metadataCache.set("", { type: "directory" });
+  fsShim._metadataCache.set("/", { type: "directory" });
+
+  console.log(
+    "[ignis] Metadata cache populated:",
+    fsShim._metadataCache.size,
+    "entries",
+  );
+}
+
+function initVaultConfigFallback() {
   try {
     const vaultParam = window.__currentVaultId
       ? "?vault=" + encodeURIComponent(window.__currentVaultId)
@@ -24,21 +79,7 @@ function initVaultConfig() {
     xhr.send();
 
     if (xhr.status === 200) {
-      const info = JSON.parse(xhr.responseText);
-
-      window.__currentVaultId = info.id;
-      localStorage.setItem("last-vault", info.id);
-      window.__obsidianVersion = info.version || "0.0.0";
-
-      window.__vaultConfig = {
-        id: info.id,
-        path: "/",
-      };
-
-      window.__ignisPlugin = info.ignisPlugin || null;
-
-      console.log("[ignis] Vault:", window.__vaultConfig);
-      console.log("[ignis] Obsidian version:", window.__obsidianVersion);
+      applyVaultInfo(JSON.parse(xhr.responseText));
     } else {
       console.warn("[ignis] No vault found, will show manager");
     }
@@ -47,7 +88,7 @@ function initVaultConfig() {
   }
 }
 
-function initVaultList() {
+function initVaultListFallback() {
   try {
     vaultService.listVaultsSync();
   } catch (e) {
@@ -55,7 +96,7 @@ function initVaultList() {
   }
 }
 
-function initMetadataCache() {
+function initMetadataCacheFallback() {
   try {
     const vaultParam = window.__currentVaultId
       ? "?vault=" + encodeURIComponent(window.__currentVaultId)
@@ -67,17 +108,7 @@ function initMetadataCache() {
     xhr.send();
 
     if (xhr.status === 200) {
-      const tree = JSON.parse(xhr.responseText);
-
-      fsShim._metadataCache.populate(tree);
-      fsShim._metadataCache.set("", { type: "directory" });
-      fsShim._metadataCache.set("/", { type: "directory" });
-
-      console.log(
-        "[ignis] Metadata cache populated:",
-        fsShim._metadataCache.size,
-        "entries",
-      );
+      applyTree(JSON.parse(xhr.responseText));
     } else {
       console.error("[ignis] Failed to fetch metadata tree:", xhr.status);
     }
@@ -114,7 +145,48 @@ function initPluginPrompt() {
 // this prevents headless sync from being disabled as a result of a different device syncing "Active core plugins list".
 // i.e ensure Ignis always has sync: false if headless sync is active.
 // This may be somewhat overengineered. Could revisit later.
-function initCoreSyncGuard() {
+function applyCoreSyncGuard(plugins) {
+  const vaultId = window.__currentVaultId;
+
+  if (!vaultId || !plugins) {
+    return;
+  }
+
+  const headlessSync = plugins.find(
+    (p) => p.id === "headless-sync" && p.bundledPluginId,
+  );
+
+  if (!headlessSync || !headlessSync.enabledVaults.includes(vaultId)) {
+    return;
+  }
+
+  console.log(
+    "[ignis] Headless sync active for this vault, patching core-plugins.json reads",
+  );
+  window.__ignisHeadlessSyncActive = true;
+
+  registerReadTransform(".obsidian/core-plugins.json", (data) => {
+    if (!window.__ignisHeadlessSyncActive) {
+      return data;
+    }
+
+    let text =
+      typeof data === "string" ? data : new TextDecoder().decode(data);
+
+    try {
+      const config = JSON.parse(text);
+
+      if (config.sync === true) {
+        config.sync = false;
+        return JSON.stringify(config);
+      }
+    } catch {}
+
+    return data;
+  });
+}
+
+function initCoreSyncGuardFallback() {
   const vaultId = window.__currentVaultId;
 
   if (!vaultId) {
@@ -127,43 +199,9 @@ function initCoreSyncGuard() {
     xhr.open("GET", "/api/plugins", false);
     xhr.send();
 
-    if (xhr.status !== 200) {
-      return;
+    if (xhr.status === 200) {
+      applyCoreSyncGuard(JSON.parse(xhr.responseText));
     }
-
-    const plugins = JSON.parse(xhr.responseText);
-    const headlessSync = plugins.find(
-      (p) => p.id === "headless-sync" && p.bundledPluginId,
-    );
-
-    if (!headlessSync || !headlessSync.enabledVaults.includes(vaultId)) {
-      return;
-    }
-
-    console.log(
-      "[ignis] Headless sync active for this vault, patching core-plugins.json reads",
-    );
-    window.__ignisHeadlessSyncActive = true;
-
-    registerReadTransform(".obsidian/core-plugins.json", (data) => {
-      if (!window.__ignisHeadlessSyncActive) {
-        return data;
-      }
-
-      let text =
-        typeof data === "string" ? data : new TextDecoder().decode(data);
-
-      try {
-        const config = JSON.parse(text);
-
-        if (config.sync === true) {
-          config.sync = false;
-          return JSON.stringify(config);
-        }
-      } catch {}
-
-      return data;
-    });
   } catch (e) {
     console.warn("[ignis] Failed to init core sync guard:", e);
   }
@@ -171,11 +209,22 @@ function initCoreSyncGuard() {
 
 export function initialize() {
   resolveVaultId();
-  initVaultConfig();
   resolveWorkspaceName();
-  initVaultList();
-  initMetadataCache();
-  initCoreSyncGuard();
+
+  const bootstrap = fetchBootstrap();
+
+  if (bootstrap) {
+    applyVaultInfo(bootstrap.vault);
+    window.__vaultList = bootstrap.vaultList;
+    applyTree(bootstrap.tree);
+    applyCoreSyncGuard(bootstrap.plugins);
+  } else {
+    initVaultConfigFallback();
+    initVaultListFallback();
+    initMetadataCacheFallback();
+    initCoreSyncGuardFallback();
+  }
+
   installRequestUrlShim();
   initWorkspacePatch();
   initPluginPrompt();

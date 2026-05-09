@@ -7,8 +7,39 @@
   <link href="app.css" type="text/css" rel="stylesheet"/>
   <link rel="icon" type="image/png" href="favicon.png"/>
   <link href="assets/overrides.css" type="text/css" rel="stylesheet"/>
+  <style>
+    #ignis-status {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 18px;
+      background: #202020;
+      color: #b3b3b3;
+      font: 14px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      z-index: 9999;
+      transition: opacity 200ms ease-out;
+    }
+    #ignis-status.fade { opacity: 0; pointer-events: none; }
+    #ignis-status img {
+      width: 96px;
+      height: 96px;
+      animation: ignis-pulse 1.6s ease-in-out infinite;
+    }
+    #ignis-status-label { font-size: 13px; opacity: 0.75; }
+    @keyframes ignis-pulse {
+      0%, 100% { opacity: 0.85; transform: scale(1); }
+      50%      { opacity: 1;    transform: scale(1.04); }
+    }
+  </style>
 </head>
 <body class="theme-dark">
+<div id="ignis-status">
+  <img src="favicon.png" alt=""/>
+  <div id="ignis-status-label">Loading Obsidian...</div>
+</div>
 <!-- Ignis shims: must run before any Obsidian code. -->
 <script type="text/javascript" src="__IGNIS_UI_SRC__"></script>
 <script type="text/javascript" src="__SHIM_LOADER_SRC__"></script>
@@ -16,11 +47,41 @@
 <script>
 (function () {
   var scripts = __OBSIDIAN_SCRIPTS__;
+  var label = document.getElementById("ignis-status-label");
+  var status = document.getElementById("ignis-status");
+  var loaded = 0;
+
+  function update() {
+    if (label) {
+      label.textContent = "Loading Obsidian " + loaded + "/" + scripts.length;
+    }
+  }
+
+  function done() {
+    if (!status) return;
+    status.classList.add("fade");
+    setTimeout(function () {
+      if (status && status.parentNode) status.parentNode.removeChild(status);
+    }, 250);
+  }
+
+  update();
+
   for (var i = 0; i < scripts.length; i++) {
     var s = document.createElement("script");
     s.type = "text/javascript";
     s.src = scripts[i];
     s.async = false;
+    s.onload = function () {
+      loaded++;
+      update();
+      if (loaded === scripts.length) done();
+    };
+    s.onerror = function () {
+      loaded++;
+      update();
+      if (loaded === scripts.length) done();
+    };
     document.body.appendChild(s);
   }
 })();

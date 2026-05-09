@@ -52,6 +52,7 @@ const fsRoutes = require("./routes/fs");
 const vaultRoutes = require("./routes/vault");
 const proxyRoutes = require("./routes/proxy");
 const versionRoutes = require("./routes/version");
+const bootstrapRoutes = require("./routes/bootstrap");
 
 app.use("/assets", express.static(path.join(__dirname, "assets")));
 
@@ -60,6 +61,7 @@ app.use("/api/vault", vaultRoutes);
 app.use("/api/proxy", proxyRoutes);
 app.use("/api/version", versionRoutes);
 app.use("/api/plugins", pluginRoutes);
+app.use("/api/bootstrap", bootstrapRoutes);
 
 // Serve vault files for resource URLs (images, attachments, etc.)
 // Vault ID is the first path segment: /vault-files/<vault-id>/path/to/file
@@ -153,6 +155,9 @@ const server = app.listen(config.port, async () => {
 
   await updateBridgePluginInAllVaults(config.vaultRoot);
   await initPlugins({ app, config, wss, watcher });
+  bootstrapRoutes.warmUp().catch((e) =>
+    console.warn("[bootstrap] warm-up error:", e.message),
+  );
 });
 
 const wss = setupWebSocket(server);
