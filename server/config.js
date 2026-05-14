@@ -79,6 +79,16 @@ module.exports = {
       ? parseInt(process.env.WRITE_COALESCE_MS)
       : 5000,
 
+  demoMode: process.env.DEMO_MODE === "true",
+  demoMaxSessions: parseInt(process.env.DEMO_MAX_SESSIONS) || 20,
+  demoVaultsPerSession: parseInt(process.env.DEMO_VAULTS_PER_SESSION) || 3,
+  demoSessionQuotaBytes:
+    parseInt(process.env.DEMO_SESSION_QUOTA_BYTES) || 700 * 1024,
+  demoTimeoutMs: parseInt(process.env.DEMO_TIMEOUT_MS) || 30 * 60 * 1000,
+  demoTemplateDir:
+    process.env.DEMO_TEMPLATE_DIR ||
+    path.join(__dirname, "demo-template"),
+
   obsidianAssetsPath:
     process.env.OBSIDIAN_ASSETS_PATH ||
     path.join(__dirname, "..", "investigation", "obsidian_1.12.7_unpacked"),

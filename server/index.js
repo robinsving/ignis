@@ -10,6 +10,7 @@ const { updateBridgePluginInAllVaults } = require("./bridge-plugin");
 const { initPlugins, shutdownPlugins } = require("./plugin-system/manager");
 const pluginRoutes = require("./routes/plugins");
 const { flushAll } = require("./write-coalescer");
+const { setupDemo, wireDemoWebSocket } = require("./demo");
 
 const ANSI_RED = "\x1b[31m";
 const ANSI_YELLOW = "\x1b[33m";
@@ -55,6 +56,10 @@ const versionRoutes = require("./routes/version");
 const bootstrapRoutes = require("./routes/bootstrap");
 
 app.use("/assets", express.static(path.join(__dirname, "assets")));
+
+// Demo mode: layers session/quota/allowlist middleware on top of the existing routes.
+// Must run BEFORE the routes are mounted. No-op when DEMO_MODE != true.
+setupDemo(app);
 
 app.use("/api/fs", fsRoutes);
 app.use("/api/vault", vaultRoutes);
@@ -116,6 +121,13 @@ function buildIndexHtml() {
   html = html.replace("__SHIM_LOADER_SRC__", `shim-loader.js?v=${version}`);
   html = html.replace("__OBSIDIAN_SCRIPTS__", JSON.stringify(scripts));
 
+  if (config.demoMode) {
+    html = html.replace(
+      '<body class="theme-dark">',
+      '<body class="theme-dark" data-demo-mode="true">',
+    );
+  }
+
   cachedHtml = html;
   return cachedHtml;
 }
@@ -155,12 +167,13 @@ const server = app.listen(config.port, async () => {
 
   await updateBridgePluginInAllVaults(config.vaultRoot);
   await initPlugins({ app, config, wss, watcher });
-  bootstrapRoutes.warmUp().catch((e) =>
-    console.warn("[bootstrap] warm-up error:", e.message),
-  );
+  bootstrapRoutes
+    .warmUp()
+    .catch((e) => console.warn("[bootstrap] warm-up error:", e.message));
 });
 
 const wss = setupWebSocket(server);
+wireDemoWebSocket(server);
 
 async function gracefulShutdown(signal) {
   console.log(`\n[ignis] Received ${signal}, shutting down gracefully...`);

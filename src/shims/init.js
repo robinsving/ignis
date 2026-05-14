@@ -9,6 +9,7 @@ import {
   initWorkspacePatch,
 } from "./workspace.js";
 import { prefetchVaultContent } from "./fs/indexer-prefetch.js";
+import { autoTrustDemoVaults, maybeProvisionDemoVault } from "./demo.js";
 
 function resolveVaultId() {
   const urlParams = new URLSearchParams(window.location.search);
@@ -213,6 +214,10 @@ function initCoreSyncGuardFallback() {
 }
 
 export function initialize() {
+  if (maybeProvisionDemoVault()) {
+    return;
+  }
+
   resolveVaultId();
   resolveWorkspaceName();
   loadPresetIfRequested();
@@ -222,6 +227,7 @@ export function initialize() {
   if (bootstrap) {
     applyVaultInfo(bootstrap.vault);
     window.__vaultList = bootstrap.vaultList;
+    autoTrustDemoVaults(bootstrap.vaultList);
     applyTree(bootstrap.tree);
     applyCoreSyncGuard(bootstrap.plugins);
 

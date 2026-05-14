@@ -4,6 +4,7 @@ const { patchSettingsModal, unpatchSettingsModal } = require("./settings/inject"
 const pluginRegistry = require("./plugin-registry");
 const { initStatusBar } = require("./status-bar");
 const { WorkspacePickerModal } = require("./workspace-picker");
+const { startDemoGuards, stopDemoGuards } = require("./demo-guards");
 
 window.__obsidianAPI = require("obsidian");
 
@@ -13,6 +14,7 @@ class IgnisBridgePlugin extends Plugin {
 
     await pluginRegistry.refresh();
     patchSettingsModal(this);
+    startDemoGuards();
     this._statusBarInterval = initStatusBar(this);
 
     this.addRibbonIcon("upload", "Upload file", () => {
@@ -44,6 +46,7 @@ class IgnisBridgePlugin extends Plugin {
     }
 
     unpatchSettingsModal(this);
+    stopDemoGuards();
     console.log("[ignis-bridge] Plugin unloaded");
   }
 }

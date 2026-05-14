@@ -112,3 +112,20 @@ A basic plugin system for extending the server. Still early, the core lifecycle 
 An Ignis plugin is a Node.js package under `server/plugins/<name>/` that exports an id, name, and a `register` function. On load it receives a context object with access to config, the WebSocket server, a file watcher, an Express router, a logger, and a persistent data directory. Plugins are enabled and disabled per vault, with state persisted in `data/plugin-config.json`.
 
 When enabled, a plugin's Express router is mounted at `/api/ext/<pluginId>/`. A plugin can also optionally bundle an Obsidian plugin, a directory containing a standard Obsidian plugin (manifest.json, main.js) that gets auto-installed into the vault on enable and removed on disable. This bridges the server and client sides: the Ignis plugin handles server logic and routes, while the bundled Obsidian plugin provides the in-app UI or behavior.
+
+## Demo mode
+
+A separate operating mode for running Ignis as a public-facing demo. Enabled by `DEMO_MODE=true`. When off, none of the demo code runs and the server behaves normally.
+
+In demo mode, each visitor gets a session identified by a cookie. Their vaults are stored on disk under a session-prefixed name (`demo-<sessionId>__<userVaultName>`) to avoid naming collisons; demo middleware translates inbound `?vault=X` and request bodies, and rewrites vault id/name fields in JSON responses on the way out.
+
+The bootstrap endpoint's pre-compressed buffer path is bypassed in demo mode so the response wrapper can rewrite per-session names.
+
+Other demo behaviors:
+- Per-session caps on vault count and cumulative bytes, returning 507 when exceeded.
+- Proxy allowlist limiting `/api/proxy` to a known-safe set of hosts (no `obsidian.md`/`api.obsidian.md` so account login attempts fail at the network layer).
+- A `setInterval` cleanup that removes inactive sessions and orphaned `demo-*` directories, with a recovery redirect that sends users to `/` if their requested vault was wiped under them.
+- Server-side plugins (e.g. headless-sync) hidden from the client; enable/disable returns 403.
+- The bridge plugin disables any `<input type="email">` or `<input type="password">` it sees anywhere in the document, with a placeholder telling users not to enter credentials.
+
+All server-side demo code lives in `server/demo/`. The client-side hooks live in `src/shims/demo.js`. The deployment example is in `examples/demo/` (tmpfs-mounted vaults, restricted proxy, all the env vars).

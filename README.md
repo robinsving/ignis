@@ -117,6 +117,12 @@ volumes:
 | `PUID` | User ID for file ownership | `1000` |
 | `PGID` | Group ID for file ownership | `1000` |
 | `WRITE_COALESCE_MS` | Debounce window (ms) for rapid writes. Useful for slow filesystems (rclone, NFS, SMB). Set to `0` to disable. | `5000` |
+| `DEMO_MODE` | Enable demo mode (per-session vaults, auto-cleanup, proxy allowlist, login blocking). See [examples/demo/](examples/demo/). | `false` |
+| `DEMO_MAX_SESSIONS` | Concurrent demo session cap. New visitors get a 503 capacity page when full. | `20` |
+| `DEMO_VAULTS_PER_SESSION` | Max vaults per session (vault create returns 507 past this). | `3` |
+| `DEMO_SESSION_QUOTA_BYTES` | Cumulative byte budget per session across all session vaults. | `716800` |
+| `DEMO_TIMEOUT_MS` | Inactivity timeout before a demo session and its vaults are cleaned up. | `1800000` |
+| `DEMO_TEMPLATE_DIR` | Directory copied into each new demo vault. | `server/demo-template/` |
 
 ## Contributing
 

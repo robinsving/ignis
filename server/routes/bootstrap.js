@@ -1,8 +1,7 @@
 // Bootstrap endpoint for cold start.
 //
-// Combines vault info, vault list, metadata tree, and plugin list into a
-// single pre-compressed response. Cache is per-vault and invalidated by
-// directory mtime check + explicit invalidateVault() calls from the write/delete routes.
+// Combines vault info, vault list, metadata tree, and plugin list into a single pre-compressed response.
+// Cache is per-vault and invalidated by directory mtime check + explicit invalidateVault() calls from the write/delete routes.
 
 const express = require("express");
 const fs = require("fs");
@@ -144,7 +143,8 @@ async function buildEntry(vaultId) {
     vault,
     vaultList: buildVaultList(),
     tree,
-    plugins: getDiscoveredPlugins(),
+    // In demo mode, hide server-side plugins from the client.
+    plugins: config.demoMode ? [] : getDiscoveredPlugins(),
   };
 
   const jsonBuf = Buffer.from(JSON.stringify(response));
@@ -214,6 +214,13 @@ router.get("/", async (req, res) => {
 
     if (!entry) {
       return res.status(404).json({ error: "Vault not found" });
+    }
+
+    // In demo mode, route through res.json so the demo middleware can translate vault names per-session.
+    // The pre-compressed buffer path bakes the storage prefix in and would bypass the response wrapper.
+    // Deep-clone so the demo translator's in-place mutation doesn't pollute the cached response object.
+    if (req._demoSessionId) {
+      return res.json(JSON.parse(JSON.stringify(entry.response)));
     }
 
     const ae = req.headers["accept-encoding"] || "";
