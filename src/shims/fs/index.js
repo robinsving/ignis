@@ -7,7 +7,7 @@ import { createFsWatch } from "./watch.js";
 import { createWatcherClient } from "./watcher-client.js";
 import { createFdOps } from "./fd.js";
 import { constants } from "./constants.js";
-import { registerReadTransform, removeReadTransform } from "./read-transforms.js";
+import { registerReadTransform, removeReadTransform, resolvePath } from "./transforms.js";
 
 const metadataCache = new MetadataCache();
 const contentCache = new ContentCache();
@@ -40,6 +40,10 @@ export const fsShim = {
 
   watch: fsWatch.watch,
   constants,
+
+  invalidate(path) {
+    contentCache.invalidate(resolvePath(path));
+  },
 
   _metadataCache: metadataCache,
   _contentCache: contentCache,

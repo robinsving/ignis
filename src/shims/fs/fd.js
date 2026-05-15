@@ -3,6 +3,7 @@
 // around files without loading them via readFileSync upfront.
 
 import { isInputCachePath, inputCacheGet } from "./input-cache.js";
+import { resolvePath } from "./transforms.js";
 
 let nextFd = 100;
 const openFiles = new Map();
@@ -22,7 +23,8 @@ export function createFdOps(metadataCache, contentCache, transport) {
       }
     }
 
-    const cached = contentCache.get(path);
+    const resolved = resolvePath(path);
+    const cached = contentCache.get(resolved);
 
     if (cached !== null) {
       if (typeof cached === "string") {
@@ -33,9 +35,9 @@ export function createFdOps(metadataCache, contentCache, transport) {
     }
 
     // Synchronous fetch fallback
-    console.warn("[shim:fs] fd open cache miss, using sync XHR:", path);
-    const data = transport.readFileSync(path);
-    contentCache.set(path, data);
+    console.warn("[shim:fs] fd open cache miss, using sync XHR:", resolved);
+    const data = transport.readFileSync(resolved);
+    contentCache.set(resolved, data);
 
     return data;
   }
@@ -56,8 +58,9 @@ export function createFdOps(metadataCache, contentCache, transport) {
 
   function openSync(path, flags, mode) {
     const hasInCache = isInputCachePath(path) && inputCacheGet(path) !== null;
+    const resolved = resolvePath(path);
 
-    if (!hasInCache && !metadataCache.has(path)) {
+    if (!hasInCache && !metadataCache.has(resolved)) {
       const err = new Error(
         `ENOENT: no such file or directory, open '${path}'`,
       );
@@ -67,7 +70,7 @@ export function createFdOps(metadataCache, contentCache, transport) {
 
     const data = ensureData(path);
     const fd = nextFd++;
-    openFiles.set(fd, { path, data });
+    openFiles.set(fd, { path: resolved, data });
 
     return fd;
   }

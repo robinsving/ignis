@@ -1,27 +1,28 @@
 import { fsShim } from "./fs/index.js";
-import { registerReadTransform } from "./fs/read-transforms.js";
+import {
+  registerPathResolver,
+  registerReadTransform,
+  registerWriteTransform,
+} from "./fs/transforms.js";
 
 const WORKSPACE_PATH = ".obsidian/workspace.json";
 const WORKSPACES_PATH = ".obsidian/workspaces.json";
 
-export function rewriteWorkspacePath(normalizedPath) {
-  const name = window.__workspaceName;
+// Redirect workspace.json to a per-name file when a workspace is active in this tab.
+registerPathResolver(
+  (path) => path === WORKSPACE_PATH && !!window.__workspaceName,
+  () => `.obsidian/workspace.${window.__workspaceName}.json`,
+);
 
-  if (!name) {
-    return normalizedPath;
-  }
-
-  if (normalizedPath === WORKSPACE_PATH) {
-    return `.obsidian/workspace.${name}.json`;
-  }
-
-  return normalizedPath;
-}
-
-export function rewriteWorkspacesContent(content) {
+// Keep workspaces.json's active field at the canonical value on disk so other tabs see a stable state.
+registerWriteTransform(WORKSPACES_PATH, (content) => {
   const original = window.__originalActiveWorkspace;
 
   if (!original || !window.__workspaceName) {
+    return content;
+  }
+
+  if (typeof content !== "string") {
     return content;
   }
 
@@ -35,7 +36,7 @@ export function rewriteWorkspacesContent(content) {
   } catch {}
 
   return content;
-}
+});
 
 function setWorkspaceParam(name) {
   const url = new URL(window.location.href);
@@ -136,29 +137,33 @@ export function initWorkspacePatch() {
     instance.loadWorkspace = function (name) {
       window.__workspaceName = name;
       setWorkspaceParam(name);
-      fsShim._contentCache.invalidate(".obsidian/workspace.json");
+      fsShim.invalidate(WORKSPACE_PATH);
       return origLoad(name);
     };
 
     instance.saveWorkspace = function (name) {
-      // Grab the current layout before switching the transport target.
-      const currentLayout = fsShim._contentCache.get(".obsidian/workspace.json");
+      // Grab the current layout before changing __workspaceName.
+      let currentLayout = null;
+
+      try {
+        currentLayout = fsShim.readFileSync(WORKSPACE_PATH, "utf-8");
+      } catch {}
 
       window.__workspaceName = name;
       setWorkspaceParam(name);
-      fsShim._contentCache.invalidate(".obsidian/workspace.json");
+      fsShim.invalidate(WORKSPACE_PATH);
       const result = origSave(name);
 
       // Write the layout to the new workspace file so it exists on disk immediately.
       if (currentLayout) {
-        fsShim.writeFileSync(".obsidian/workspace.json", currentLayout, "utf-8");
+        fsShim.writeFileSync(WORKSPACE_PATH, currentLayout, "utf-8");
       }
 
       return result;
     };
 
     // Override the active field on reads so the menu matches this tab's workspace.
-    registerReadTransform(".obsidian/workspaces.json", (data) => {
+    registerReadTransform(WORKSPACES_PATH, (data) => {
       if (!window.__workspaceName) {
         return data;
       }

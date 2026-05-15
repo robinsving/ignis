@@ -1,10 +1,4 @@
-import {
-  rewriteWorkspacePath,
-  rewriteWorkspacesContent,
-} from "../workspace.js";
-
 const API_BASE = "/api/fs";
-const WORKSPACES_PATH = ".obsidian/workspaces.json";
 
 function normPath(p) {
   return (p || "").replace(/^\/+/, "");
@@ -116,26 +110,10 @@ export const transport = {
   },
 
   async readFile(path, encoding) {
-    const norm = normPath(path);
-    const rewritten = rewriteWorkspacePath(norm);
-
-    let res;
-
-    try {
-      res = await request("GET", "/readFile", {
-        path: rewritten,
-        encoding: encoding || "",
-      });
-    } catch (e) {
-      if (rewritten !== norm && e.code === "ENOENT") {
-        res = await request("GET", "/readFile", {
-          path: norm,
-          encoding: encoding || "",
-        });
-      } else {
-        throw e;
-      }
-    }
+    const res = await request("GET", "/readFile", {
+      path: normPath(path),
+      encoding: encoding || "",
+    });
 
     if (encoding === "utf8" || encoding === "utf-8") {
       return res.text();
@@ -146,17 +124,10 @@ export const transport = {
   },
 
   async writeFile(path, content, encoding) {
-    const norm = normPath(path);
-    let data = content;
-
-    if (norm === WORKSPACES_PATH && typeof data === "string") {
-      data = rewriteWorkspacesContent(data);
-    }
-
-    const isText = typeof data === "string";
+    const isText = typeof content === "string";
     return requestJson("POST", "/writeFile", {
-      path: rewriteWorkspacePath(norm),
-      content: isText ? data : uint8ToBase64(data),
+      path: normPath(path),
+      content: isText ? content : uint8ToBase64(content),
       encoding: encoding || (isText ? "utf-8" : "binary"),
       base64: !isText,
     });
@@ -222,26 +193,10 @@ export const transport = {
   },
 
   readFileSync(path, encoding) {
-    const norm = normPath(path);
-    const rewritten = rewriteWorkspacePath(norm);
-
-    let xhr;
-
-    try {
-      xhr = requestSync("GET", "/readFile", {
-        path: rewritten,
-        encoding: encoding || "",
-      });
-    } catch (e) {
-      if (rewritten !== norm && e.code === "ENOENT") {
-        xhr = requestSync("GET", "/readFile", {
-          path: norm,
-          encoding: encoding || "",
-        });
-      } else {
-        throw e;
-      }
-    }
+    const xhr = requestSync("GET", "/readFile", {
+      path: normPath(path),
+      encoding: encoding || "",
+    });
 
     if (encoding === "utf8" || encoding === "utf-8") {
       return xhr.responseText;
@@ -258,17 +213,10 @@ export const transport = {
   },
 
   writeFileSync(path, content, encoding) {
-    const norm = normPath(path);
-    let data = content;
-
-    if (norm === WORKSPACES_PATH && typeof data === "string") {
-      data = rewriteWorkspacesContent(data);
-    }
-
-    const isText = typeof data === "string";
+    const isText = typeof content === "string";
     requestSync("POST", "/writeFile", {
-      path: rewriteWorkspacePath(norm),
-      content: isText ? data : uint8ToBase64(data),
+      path: normPath(path),
+      content: isText ? content : uint8ToBase64(content),
       encoding: encoding || (isText ? "utf-8" : "binary"),
       base64: !isText,
     });

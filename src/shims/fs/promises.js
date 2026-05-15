@@ -1,19 +1,20 @@
 import { markLocalOp } from "./echo-guard.js";
 import { isInputCachePath, inputCacheGet } from "./input-cache.js";
-import { applyReadTransform } from "./read-transforms.js";
+import { applyReadTransform, applyWriteTransform, resolvePath } from "./transforms.js";
 
 export function createFsPromises(metadataCache, contentCache, transport) {
   return {
     async stat(path) {
-      const cached = metadataCache.toStat(path);
+      const resolved = resolvePath(path);
+      const cached = metadataCache.toStat(resolved);
 
       if (cached) {
         return cached;
       }
 
-      const meta = await transport.stat(path);
-      metadataCache.set(path, meta);
-      return metadataCache.toStat(path);
+      const meta = await transport.stat(resolved);
+      metadataCache.set(resolved, meta);
+      return metadataCache.toStat(resolved);
     },
 
     async lstat(path) {
@@ -46,6 +47,7 @@ export function createFsPromises(metadataCache, contentCache, transport) {
       }
 
       const wantText = encoding === "utf8" || encoding === "utf-8";
+      const resolved = resolvePath(path);
 
       let result = null;
 
@@ -55,7 +57,7 @@ export function createFsPromises(metadataCache, contentCache, transport) {
       }
 
       if (result === null) {
-        const meta = metadataCache.get(path);
+        const meta = metadataCache.get(resolved);
 
         if (meta && meta.type === "directory") {
           const e = new Error("EISDIR: illegal operation on a directory, read");
@@ -63,7 +65,8 @@ export function createFsPromises(metadataCache, contentCache, transport) {
           throw e;
         }
 
-        if (!meta && path) {
+        if (!meta && resolved && resolved === path) {
+          // Throw ENOENT only when not redirected; redirected paths fall through to the transport's fallback.
           const e = new Error(
             `ENOENT: no such file or directory, open '${path}'`,
           );
@@ -71,16 +74,25 @@ export function createFsPromises(metadataCache, contentCache, transport) {
           throw e;
         }
 
-        result = contentCache.get(path);
+        result = contentCache.get(resolved);
       }
 
       if (result === null) {
-        result = await transport.readFile(path, encoding);
-        contentCache.set(path, result);
+        try {
+          result = await transport.readFile(resolved, encoding);
+        } catch (e) {
+          if (resolved !== path && e.code === "ENOENT") {
+            result = await transport.readFile(path, encoding);
+          } else {
+            throw e;
+          }
+        }
+
+        contentCache.set(resolved, result);
       }
 
       // Apply registered read transforms (e.g., patching synced config files).
-      result = applyReadTransform(path, result);
+      result = applyReadTransform(resolved, result);
 
       if (wantText) {
         return typeof result === "string"
@@ -100,62 +112,74 @@ export function createFsPromises(metadataCache, contentCache, transport) {
         encoding = encoding?.encoding;
       }
 
-      markLocalOp(path);
-      contentCache.set(path, data);
+      const resolved = resolvePath(path);
+      const transformed = applyWriteTransform(resolved, data);
+
+      markLocalOp(resolved);
+      contentCache.set(resolved, transformed);
 
       const size =
-        typeof data === "string" ? data.length : data.byteLength || 0;
+        typeof transformed === "string"
+          ? transformed.length
+          : transformed.byteLength || 0;
 
-      metadataCache.set(path, {
+      metadataCache.set(resolved, {
         type: "file",
         size,
         mtime: Date.now(),
-        ctime: metadataCache.get(path)?.ctime || Date.now(),
+        ctime: metadataCache.get(resolved)?.ctime || Date.now(),
       });
 
-      const result = await transport.writeFile(path, data, encoding);
+      const result = await transport.writeFile(resolved, transformed, encoding);
 
       if (result.mtime) {
-        metadataCache.set(path, {
+        metadataCache.set(resolved, {
           type: "file",
           size: result.size || size,
           mtime: result.mtime,
-          ctime: metadataCache.get(path)?.ctime || Date.now(),
+          ctime: metadataCache.get(resolved)?.ctime || Date.now(),
         });
       }
     },
 
     async appendFile(path, data, encoding) {
-      markLocalOp(path);
-      contentCache.invalidate(path);
+      const resolved = resolvePath(path);
 
-      await transport.appendFile(path, data);
+      markLocalOp(resolved);
+      contentCache.invalidate(resolved);
 
-      const meta = await transport.stat(path);
-      metadataCache.set(path, meta);
+      await transport.appendFile(resolved, data);
+
+      const meta = await transport.stat(resolved);
+      metadataCache.set(resolved, meta);
     },
 
     async unlink(path) {
-      markLocalOp(path);
-      contentCache.delete(path);
-      metadataCache.delete(path);
+      const resolved = resolvePath(path);
 
-      await transport.unlink(path);
+      markLocalOp(resolved);
+      contentCache.delete(resolved);
+      metadataCache.delete(resolved);
+
+      await transport.unlink(resolved);
     },
 
     async rename(oldPath, newPath) {
-      markLocalOp(oldPath);
-      markLocalOp(newPath);
-      const content = contentCache.get(oldPath);
+      const resolvedOld = resolvePath(oldPath);
+      const resolvedNew = resolvePath(newPath);
+
+      markLocalOp(resolvedOld);
+      markLocalOp(resolvedNew);
+      const content = contentCache.get(resolvedOld);
 
       if (content !== null) {
-        contentCache.set(newPath, content);
-        contentCache.delete(oldPath);
+        contentCache.set(resolvedNew, content);
+        contentCache.delete(resolvedOld);
       }
 
-      metadataCache.rename(oldPath, newPath);
+      metadataCache.rename(resolvedOld, resolvedNew);
 
-      await transport.rename(oldPath, newPath);
+      await transport.rename(resolvedOld, resolvedNew);
     },
 
     async mkdir(path, options) {
@@ -178,23 +202,29 @@ export function createFsPromises(metadataCache, contentCache, transport) {
       const recursive =
         typeof options === "object" ? !!options.recursive : false;
 
-      markLocalOp(path);
-      metadataCache.delete(path);
-      contentCache.delete(path);
+      const resolved = resolvePath(path);
 
-      await transport.rm(path, recursive);
+      markLocalOp(resolved);
+      metadataCache.delete(resolved);
+      contentCache.delete(resolved);
+
+      await transport.rm(resolved, recursive);
     },
 
     async copyFile(src, dest) {
-      markLocalOp(dest);
-      await transport.copyFile(src, dest);
+      const resolvedDest = resolvePath(dest);
 
-      const meta = await transport.stat(dest);
-      metadataCache.set(dest, meta);
+      markLocalOp(resolvedDest);
+      await transport.copyFile(src, resolvedDest);
+
+      const meta = await transport.stat(resolvedDest);
+      metadataCache.set(resolvedDest, meta);
     },
 
     async access(path) {
-      if (metadataCache.has(path)) {
+      const resolved = resolvePath(path);
+
+      if (metadataCache.has(resolved)) {
         return;
       }
 
@@ -214,18 +244,21 @@ export function createFsPromises(metadataCache, contentCache, transport) {
     },
 
     async utimes(path, atime, mtime) {
-      await transport.utimes(path, atime, mtime);
-      const meta = metadataCache.get(path);
+      const resolved = resolvePath(path);
+
+      await transport.utimes(resolved, atime, mtime);
+      const meta = metadataCache.get(resolved);
       if (meta) {
         meta.mtime = typeof mtime === "number" ? mtime : mtime.getTime();
-        metadataCache.set(path, meta);
+        metadataCache.set(resolved, meta);
       }
     },
 
     async open(path, flags) {
       const hasInCache = isInputCachePath(path) && inputCacheGet(path) !== null;
+      const resolved = resolvePath(path);
 
-      if (!hasInCache && !metadataCache.has(path)) {
+      if (!hasInCache && !metadataCache.has(resolved)) {
         const err = new Error(
           `ENOENT: no such file or directory, open '${path}'`,
         );
@@ -237,7 +270,7 @@ export function createFsPromises(metadataCache, contentCache, transport) {
       const fileData =
         typeof data === "string" ? new TextEncoder().encode(data) : data;
 
-      const fileStat = metadataCache.toStat(path) || {
+      const fileStat = metadataCache.toStat(resolved) || {
         size: fileData.length,
         isFile: () => true,
         isDirectory: () => false,

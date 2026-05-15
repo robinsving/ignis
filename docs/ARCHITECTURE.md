@@ -51,6 +51,16 @@ Writes go through a server-side write coalescer (`server/write-coalescer.js`) de
 
 Sync calls use synchronous XHR to ensure blocking behavior. Async calls use fetch. Everything goes through a transport layer that handles vault ID injection, base64 encoding for binary files, and mapping HTTP error codes back to Node errno values.
 
+### Translation registry
+
+The shim has a registry (`src/shims/fs/transforms.js`) for hooks applied at the public shim surface, before caches or transport see the path. Three hook types:
+
+- **Path resolvers** map a logical path to a physical path. Used by the workspaces shim to redirect reads and writes of `.obsidian/workspace.json` to `.obsidian/workspace.<name>.json` based on the `?workspace=` URL parameter, so each browser tab can hold a separate layout.
+- **Read transforms** post-process bytes returned by a read (cache hit or transport miss). Used to mask the Obsidian Sync setting in `core-plugins.json` when headless-sync is active for the vault, and to override the `active` field on reads of `workspaces.json` so each tab sees its own workspace as selected.
+- **Write transforms** pre-process bytes before a write hits the cache or transport. Used to override the `active` field on writes to `workspaces.json` so cross-tab disk state stays canonical.
+
+All hooks are synchronous and registered at module load. Translation happens once at the shim entry; downstream layers (content cache, metadata cache, transport) operate only on resolved physical paths and as-stored bytes. This keeps cache keys coherent with what transport actually reads and writes, so prefetch and on-demand fetches share the same cache slot.
+
 ### IPC
 
 IPC is implemented as a synchronous dispatcher that maps channel names to handlers.
