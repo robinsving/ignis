@@ -24,6 +24,7 @@ class WorkspacePickerModal extends FuzzySuggestModal {
     const url = new URL(window.location.href);
 
     url.searchParams.set("workspace", item);
+    url.searchParams.set("load", "preset");
     window.open(url.toString(), "_blank");
   }
 }

@@ -50,6 +50,42 @@ function setWorkspaceParam(name) {
   history.replaceState(null, "", url.toString());
 }
 
+// When ?load=preset is set, copy the named preset from workspaces.json into this tab's per-workspace state file.
+// This overwrites any stale state from a prior session.
+// Then strip the param so a page reload doesn't keep resetting.
+export function loadPresetIfRequested() {
+  const urlParams = new URLSearchParams(window.location.search);
+
+  if (urlParams.get("load") !== "preset" || !window.__workspaceName) {
+    return;
+  }
+
+  try {
+    const presetsText = fsShim.readFileSync(WORKSPACES_PATH, "utf-8");
+    const presets = JSON.parse(presetsText);
+    const preset =
+      presets.workspaces && presets.workspaces[window.__workspaceName];
+
+    if (!preset) {
+      console.warn(
+        "[ignis] load=preset requested but no preset found for:",
+        window.__workspaceName,
+      );
+      return;
+    }
+
+    // Path resolver routes this write to workspace.<name>.json.
+    fsShim.writeFileSync(WORKSPACE_PATH, JSON.stringify(preset), "utf-8");
+    console.log("[ignis] Loaded preset for workspace:", window.__workspaceName);
+  } catch (e) {
+    console.warn("[ignis] Failed to load preset:", e);
+  } finally {
+    const url = new URL(window.location.href);
+    url.searchParams.delete("load");
+    history.replaceState(null, "", url.toString());
+  }
+}
+
 export function resolveWorkspaceName() {
   try {
     const vaultParam = window.__currentVaultId
@@ -64,7 +100,10 @@ export function resolveWorkspaceName() {
 
       coreXhr.open(
         "GET",
-        "/api/fs/readFile" + vaultParam + sep + "path=.obsidian/core-plugins.json&encoding=utf-8",
+        "/api/fs/readFile" +
+          vaultParam +
+          sep +
+          "path=.obsidian/core-plugins.json&encoding=utf-8",
         false,
       );
       coreXhr.send();
@@ -85,7 +124,10 @@ export function resolveWorkspaceName() {
 
     xhr.open(
       "GET",
-      "/api/fs/readFile" + vaultParam + sep + "path=.obsidian/workspaces.json&encoding=utf-8",
+      "/api/fs/readFile" +
+        vaultParam +
+        sep +
+        "path=.obsidian/workspaces.json&encoding=utf-8",
       false,
     );
     xhr.send();
@@ -195,7 +237,10 @@ export function initWorkspacePatch() {
       }
     });
 
-    console.log("[ignis] Workspaces plugin patched, workspace:", window.__workspaceName || "(none)");
+    console.log(
+      "[ignis] Workspaces plugin patched, workspace:",
+      window.__workspaceName || "(none)",
+    );
   });
 
   observer.observe(document.documentElement, {

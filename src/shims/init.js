@@ -3,7 +3,11 @@ import { installRequestUrlShim } from "./request-url.js";
 import { vaultService } from "../services/vault-service.js";
 import { showPluginInstallDialog } from "../ui/bootstrap.js";
 import { registerReadTransform } from "./fs/transforms.js";
-import { resolveWorkspaceName, initWorkspacePatch } from "./workspace.js";
+import {
+  resolveWorkspaceName,
+  loadPresetIfRequested,
+  initWorkspacePatch,
+} from "./workspace.js";
 import { prefetchVaultContent } from "./fs/indexer-prefetch.js";
 
 function resolveVaultId() {
@@ -211,6 +215,7 @@ function initCoreSyncGuardFallback() {
 export function initialize() {
   resolveVaultId();
   resolveWorkspaceName();
+  loadPresetIfRequested();
 
   const bootstrap = fetchBootstrap();
 
