@@ -2,6 +2,8 @@ const esbuild = require("esbuild");
 const sveltePlugin = require("esbuild-svelte");
 const path = require("path");
 
+const { version: ignisVersion } = require("./package.json");
+
 Promise.all([
   // Build shim-loader.js
   esbuild.build({
@@ -13,6 +15,9 @@ Promise.all([
     target: ["chrome90"],
     alias: {
       path: "path-browserify",
+    },
+    define: {
+      __IGNIS_VERSION__: JSON.stringify(ignisVersion),
     },
     logLevel: "info",
   }),

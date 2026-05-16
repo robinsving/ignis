@@ -7,6 +7,13 @@ const api = require("./api");
 
 class IgnisHeadlessSyncPlugin extends Plugin {
   async onload() {
+    if (!window.__ignis) {
+      console.log(
+        "[ignis-headless-sync] Not running in Ignis - plugin is a no-op.",
+      );
+      return;
+    }
+
     this.wsListener = new WsListener();
     this.wsListener.start();
 
@@ -53,6 +60,10 @@ class IgnisHeadlessSyncPlugin extends Plugin {
   }
 
   onunload() {
+    if (!window.__ignis) {
+      return;
+    }
+
     window.__ignisHeadlessSyncActive = false;
 
     if (this._coreSyncGuard) {

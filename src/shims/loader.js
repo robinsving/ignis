@@ -4,6 +4,9 @@ import { installCssOverrides } from "./css-overrides.js";
 import { initialize } from "./init.js";
 import { fsShim } from "./fs/index.js";
 
+// __IGNIS_VERSION__ is replaced at build time from package.json.
+window.__ignis = { version: __IGNIS_VERSION__ };
+
 installGlobals(); // process, Buffer, window overrides (before require so Buffer is available)
 installRequire(); // shim registry, window.require
 installCssOverrides(); // browser-specific CSS fixes

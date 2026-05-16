@@ -1,6 +1,13 @@
 const { Plugin, TFile, TFolder } = require("obsidian");
-const { showFilePicker, addFileMenuItems, addFolderMenuItems } = require("./file-actions");
-const { patchSettingsModal, unpatchSettingsModal } = require("./settings/inject");
+const {
+  showFilePicker,
+  addFileMenuItems,
+  addFolderMenuItems,
+} = require("./file-actions");
+const {
+  patchSettingsModal,
+  unpatchSettingsModal,
+} = require("./settings/inject");
 const pluginRegistry = require("./plugin-registry");
 const { initStatusBar } = require("./status-bar");
 const { WorkspacePickerModal } = require("./workspace-picker");
@@ -10,6 +17,11 @@ window.__obsidianAPI = require("obsidian");
 
 class IgnisBridgePlugin extends Plugin {
   async onload() {
+    if (!window.__ignis) {
+      console.log("[ignis-bridge] Not running in Ignis - plugin is a no-op.");
+      return;
+    }
+
     console.log("[ignis-bridge] Plugin loaded");
 
     await pluginRegistry.refresh();
@@ -41,6 +53,10 @@ class IgnisBridgePlugin extends Plugin {
   }
 
   onunload() {
+    if (!window.__ignis) {
+      return;
+    }
+
     if (this._statusBarInterval) {
       clearInterval(this._statusBarInterval);
     }
