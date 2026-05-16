@@ -2,6 +2,29 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.8.0] - Karm (2026-05-16)
+
+### Added
+
+- Demo mode: per-session vaults, auto-cleanup, proxy allowlist, login blocking. See [examples/demo/](examples/demo/).
+- No-op guard in the bridge plugin and headless-sync plugin when loaded outside Ignis.
+- "Open workspace in new tab" command now loads the workspace preset rather than the per-tab live state.
+- Real digests for `crypto.createHash` (SHA-1/SHA-256/SHA-512/MD5) via `@noble/hashes`.
+- `LEGAL.md` with the full EU Software Directive rationale.
+
+### Changed
+
+- Obsidian pinned at 1.12.7.
+- Entrypoint downloads `.asar.gz` instead of `.deb`. Smaller image, simpler extraction.
+- FS shim path translation moved from the transport layer up to the shim's public surface, so caches and metadata operate only on physical paths.
+- Readme cleanup.
+
+### Fixed
+
+- `navigator.vibrate` made conditional. Firefox setups with `dom.vibrator.enabled` off no longer hit a `TypeError`.
+- Write coalescer no longer holds HTTP responses open for the full debounce window. Buffered writes return immediately with synthetic mtime/size; only the first/stale writes wait on disk.
+- Prefetch race in workspaces-per-tab resolved by the path-translation refactor.
+
 ## [0.7.6] - Orm (2026-04-05)
 
 ### Changed

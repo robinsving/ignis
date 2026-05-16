@@ -17,6 +17,8 @@ RUN npm run build
 # On first run, the entrypoint downloads Obsidian.
 FROM node:22-slim
 
+LABEL com.thiefling.ignis.obsidian-version="1.12.7"
+
 RUN apt-get update && apt-get install -y --no-install-recommends \
   ca-certificates curl gosu \
   && rm -rf /var/lib/apt/lists/*
