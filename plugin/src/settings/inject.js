@@ -28,7 +28,33 @@ function removeExistingIgnisGroups(tabHeadersEl) {
 // Collected here so the openTab patch can manage is-active across all of them.
 const allIgnisNavEls = new Map(); // tab id -> nav element
 
-function patchOpenTab(setting) {
+function replaceInstallerVersionRow(setting, ignisVersion) {
+  const container = setting.tabContentContainer || setting.contentEl;
+
+  if (!container) {
+    return;
+  }
+
+  const rows = container.querySelectorAll(".setting-item");
+
+  for (const row of rows) {
+    const desc = row.querySelector(".setting-item-description");
+
+    if (!desc || !desc.textContent.startsWith("Installer version:")) {
+      continue;
+    }
+
+    desc.empty();
+    desc.createEl("strong", { text: `Running in Ignis v${ignisVersion}` });
+    desc.createEl("br");
+    desc.appendText(
+      "Obsidian is served through Ignis. There's no installer to update.",
+    );
+    break;
+  }
+}
+
+function patchOpenTab(setting, plugin) {
   if (setting._ignisOpenTabPatched) {
     return;
   }
@@ -49,17 +75,22 @@ function patchOpenTab(setting) {
     if (navEl) {
       navEl.addClass("is-active");
     }
+
+    if (tab && tab.id === "about") {
+      replaceInstallerVersionRow(setting, plugin.manifest.version);
+    }
   };
 
   setting._ignisOpenTabPatched = true;
 }
 
-function injectIgnisSettings(setting, app) {
+function injectIgnisSettings(setting, app, plugin) {
   removeExistingIgnisGroups(setting.tabHeadersEl);
   clearOwnedPluginIds();
   allIgnisNavEls.clear();
 
-  patchOpenTab(setting);
+  patchOpenTab(setting, plugin);
+  replaceInstallerVersionRow(setting, plugin.manifest.version);
 
   const ignis = createGroup("Ignis");
 
@@ -96,7 +127,7 @@ function patchSettingsModal(plugin) {
 
   plugin.app.setting.onOpen = function () {
     original.call(this);
-    injectIgnisSettings(this, app);
+    injectIgnisSettings(this, app, plugin);
   };
 }
 
