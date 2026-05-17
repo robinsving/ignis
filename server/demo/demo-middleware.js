@@ -272,16 +272,36 @@ function trackVaultLifecycle(req, res, next) {
 
       if (s) {
         if (req.path === "/create" && body.id) {
-          s.vaults.add(body.id);
+          // body.id is storage-prefixed at this point (outboundTranslator runs after us).
+          // Translate to the user-visible name so it matches what pageLoadHandler queries with.
+          const userName = tryParseUserVaultName(sessionId, body.id);
+
+          if (userName !== null) {
+            s.vaults.add(userName);
+          } else {
+            console.warn(
+              "[demo] trackVaultLifecycle: could not parse user name from create response id:",
+              body.id,
+            );
+          }
         } else if (req.path === "/rename") {
-          const oldName = req.body && req.body._origVault;
+          const oldName = req._demoOriginalVault;
 
           if (oldName) {
             s.vaults.delete(oldName);
           }
 
           if (body.id) {
-            s.vaults.add(body.id);
+            const userName = tryParseUserVaultName(sessionId, body.id);
+
+            if (userName !== null) {
+              s.vaults.add(userName);
+            } else {
+              console.warn(
+                "[demo] trackVaultLifecycle: could not parse user name from rename response id:",
+                body.id,
+              );
+            }
           }
         } else if (req.method === "DELETE" && req.path === "/remove") {
           const removed = req._demoOriginalVault;
