@@ -2,6 +2,25 @@
 
 Ignis runs Obsidian in a browser by replacing its Electron backend with a shim layer that routes Node.js and Electron API calls to an Express server over HTTP and WebSocket.
 
+## Contents
+
+- [Overview](#overview)
+- [Shim Layer](#shim-layer)
+  - [Loading](#loading)
+  - [Modules](#modules)
+  - [Filesystem](#filesystem)
+  - [Transforms](#transforms)
+  - [IPC](#ipc)
+  - [Cross-origin requests](#cross-origin-requests)
+  - [Workspaces in browser tabs](#workspaces-in-browser-tabs)
+- [Vaults](#vaults)
+- [Server](#server)
+- [Plugins](#plugins)
+  - [Obsidian Plugins](#obsidian-plugins)
+  - [Bridge Plugin (ignis-bridge)](#bridge-plugin-ignis-bridge)
+  - [Ignis Plugins](#ignis-plugins)
+- [Demo mode](#demo-mode)
+
 ## Overview
 
 ```
@@ -60,15 +79,15 @@ Reads not satisfied by ContentCache go through the transport layer to `/api/fs/r
 
 Writes go through a server-side write coalescer (`server/write-coalescer.js`) designed for slow filesystems like rclone FUSE mounts. The first write to a path goes to disk immediately. Subsequent writes within a configurable window (default 5 seconds, `WRITE_COALESCE_MS`) are buffered and flushed when the debounce timer fires; the timer resets on each write. Buffered writes return to the HTTP client immediately with synthetic metadata so connection-pool starvation on rapid-fire writes (e.g. `workspace.json` autosaves) doesn't stall unrelated reads. Reads for pending paths serve the buffered content so clients never see stale data. All pending writes are flushed on graceful shutdown.
 
-### Translation registry
+### Transforms
 
-The shim has a registry (`src/shims/fs/transforms.js`) for hooks applied at the public shim surface, before caches or transport see the path. Three hook types:
+The shim has a transforms registry (`src/shims/fs/transforms.js`) for hooks applied at the public shim surface, before caches or transport see the path. Three hook types:
 
 - **Path resolvers** map a logical path to a physical path. Used by the workspaces shim to redirect reads and writes of `.obsidian/workspace.json` to `.obsidian/workspace.<name>.json` based on the `?workspace=` URL parameter, so each browser tab can hold a separate layout.
 - **Read transforms** post-process bytes returned by a read (cache hit or transport miss). Used to mask the Obsidian Sync setting in `core-plugins.json` when headless-sync is active for the vault, and to override the `active` field on reads of `workspaces.json` so each tab sees its own workspace as selected.
 - **Write transforms** pre-process bytes before a write hits the cache or transport. Used to override the `active` field on writes to `workspaces.json` so cross-tab disk state stays canonical.
 
-All hooks are synchronous and registered at module load. Translation happens once at the shim entry; downstream layers (content cache, metadata cache, transport) operate only on resolved physical paths and as-stored bytes. This keeps cache keys coherent with what transport actually reads and writes, so prefetch and on-demand fetches share the same cache slot.
+All hooks are synchronous and registered at module load. They fire once at the shim entry; downstream layers (content cache, metadata cache, transport) operate only on resolved physical paths and as-stored bytes. This keeps cache keys coherent with what transport actually reads and writes, so prefetch and on-demand fetches share the same cache slot.
 
 ### IPC
 
@@ -86,15 +105,11 @@ The proxy itself is intentionally generic. It forwards method, headers, and body
 
 ### Workspaces in browser tabs
 
-Obsidian's Workspaces core plugin lets you save a window layout under a name. Ignis adds a `?workspace=<name>` URL parameter that binds a tab to a specific layout. The bridge plugin's "Open workspace in new tab" command opens the picked workspace at `?workspace=<name>` in a fresh tab.
+Obsidian's Workspaces core plugin lets you save a window layout under a name. Ignis adds a `?workspace=<name>` URL parameter that binds a tab to a specific layout. The bridge plugin's "Open workspace in new tab" command opens the picked workspace in a fresh tab.
 
-The fs shim redirects reads and writes of `.obsidian/workspace.json` to a per-workspace file (`.obsidian/workspace.<name>.json`), giving each tab its own layout. It also rewrites the active field on reads of `workspaces.json` so each tab's menu shows its own workspace as active.
+The implementation uses all three transforms (above): a path resolver redirects `.obsidian/workspace.json` to `.obsidian/workspace.<name>.json` so each tab has its own state file; a read transform overrides the `active` field on `workspaces.json` so the current tab's menu shows its own workspace as selected; a write transform keeps the canonical `active` value stable on disk so concurrent tabs don't clobber each other.
 
-Two tabs sharing a vault stay in sync through the file watcher.
-
-### Obsidian Plugin Compatibility
-
-Obsidian evals plugin code with its own require that checks its internal module map first, then falls back to the window-level require, which is the shim. Plugins that use the filesystem, path utilities, or crypto get shim implementations without any changes. Plugins that need child processes, raw sockets, or native addons will load but throw on use; the error message names the missing API.
+Two tabs in the same workspace share the same state file and stay in sync through the file watcher. Two tabs in different workspaces hold independent layout state.
 
 ## Vaults
 
@@ -124,7 +139,7 @@ Three things are called "plugin" in this project.
 
 ### Obsidian Plugins
 
-Standard community and core Obsidian plugins. They work through the shim layer with no Ignis involvement beyond providing fs, path, and crypto.
+Standard community and core Obsidian plugins. Obsidian evals plugin code with its own require that checks its internal module map first, then falls back to the window-level require, which Ignis replaces with the shim. Plugins that use the filesystem, path utilities, or crypto get shim implementations transparently. Plugins that need child processes, raw sockets, or native addons load but throw on first use; the error message names the missing API.
 
 ### Bridge Plugin (ignis-bridge)
 

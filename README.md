@@ -72,6 +72,17 @@ Compatibility for specific community plugins is tracked in [Issue #9](https://gi
 - Ignis-specific settings appear as their own tabs inside Obsidian's Settings modal.
 - Status bar indicators surface server state and headless sync activity.
 
+## Roadmap
+
+**Planned:**
+- Server parameter configuration from the Ignis settings panel (LRU cache size, write coalesce window, etc.)
+- Continued shim work to support more community plugins.
+- Server-side plugin system improvements.
+
+**Eventually:**
+- Multi-user support with OIDC for self-hosted shared deployments.
+- Built-in auth, so a reverse proxy isn't required for basic protected use.
+
 ## Performance
 
 A few design decisions worth knowing about for someone evaluating Ignis against large vaults or slow storage:
