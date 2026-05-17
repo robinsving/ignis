@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.8.1] - Karm (2026-05-17)
+
+### Added
+
+- "Available version" indicator in Ignis settings now links to the release page on GitHub.
+
+### Fixed
+
+- Update check no longer reports a new version available when only the SemVer build metadata differs.
+
 ## [0.8.0] - Karm (2026-05-16)
 
 ### Added
