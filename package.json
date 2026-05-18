@@ -1,8 +1,12 @@
 {
-  "name": "ignis",
+  "name": "ignis-monorepo",
   "version": "0.8.1",
   "private": true,
-  "description": "An Electron shim and server bridge for running Obsidian in a browser.",
+  "description": "Monorepo for Ignis: a browser-based Obsidian client. Self-hosted server in apps/ignis-server; shim, UI, and shared libraries in packages/.",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
   "scripts": {
     "build": "node build.js",
     "dev:server": "node server/index.js",

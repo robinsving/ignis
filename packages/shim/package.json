@@ -1,0 +1,6 @@
+{
+  "name": "@ignis/shim",
+  "version": "0.0.0-internal",
+  "private": true,
+  "main": "src/loader.js"
+}
