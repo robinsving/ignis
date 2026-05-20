@@ -6,15 +6,13 @@ import os from "os";
 
 const require = createRequire(import.meta.url);
 const coalescer = require("./write-coalescer.js");
-const config = require("./config.js");
 
 const SHORT_WINDOW_MS = 50;
-const originalWindow = config.writeCoalesceMs;
 
 let tmpDir;
 
 beforeEach(async () => {
-  config.writeCoalesceMs = SHORT_WINDOW_MS;
+  coalescer.configure({ writeCoalesceMs: SHORT_WINDOW_MS });
   coalescer._reset();
   tmpDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), "coalesce-test-"));
 });
@@ -22,7 +20,7 @@ beforeEach(async () => {
 afterEach(async () => {
   coalescer._reset();
   vi.restoreAllMocks();
-  config.writeCoalesceMs = originalWindow;
+  coalescer.configure({ writeCoalesceMs: 0 });
   await fs.promises.rm(tmpDir, { recursive: true, force: true });
 });
 

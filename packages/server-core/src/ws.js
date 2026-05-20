@@ -1,9 +1,14 @@
 const { WebSocketServer } = require("ws");
 const url = require("url");
-const config = require("./config");
 const watcher = require("./watcher");
 
-function setupWebSocket(server) {
+function setupWebSocket(server, opts = {}) {
+  const { getVaultPath } = opts;
+
+  if (typeof getVaultPath !== "function") {
+    throw new Error("setupWebSocket: opts.getVaultPath is required");
+  }
+
   const wss = new WebSocketServer({ server, path: "/ws" });
 
   // Plugin-registered message handlers: type -> handler(msg, ws)
@@ -13,12 +18,12 @@ function setupWebSocket(server) {
     const params = new url.URL(req.url, "http://localhost").searchParams;
     const vaultId = params.get("vault");
 
-    if (!vaultId || !config.getVaultPath(vaultId)) {
+    if (!vaultId || !getVaultPath(vaultId)) {
       ws.close(4001, "Invalid or missing vault ID");
       return;
     }
 
-    const vaultPath = config.getVaultPath(vaultId);
+    const vaultPath = getVaultPath(vaultId);
     console.log(`[ws] Client connected to vault: ${vaultId}`);
 
     // Start watching this vault (no-op if already watching)

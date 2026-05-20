@@ -4,12 +4,12 @@ const path = require("path");
 const compression = require("compression");
 const config = require("./config");
 const { getVersion } = require("./version");
-const { setupWebSocket } = require("./ws");
-const watcher = require("./watcher");
+const { setupWebSocket, watcher, writeCoalescer } = require("@ignis/server-core");
 const { updateBridgePluginInAllVaults } = require("./bridge-plugin");
 const { initPlugins, shutdownPlugins } = require("./plugin-system/manager");
 const pluginRoutes = require("./routes/plugins");
-const { flushAll } = require("./write-coalescer");
+writeCoalescer.configure({ writeCoalesceMs: config.writeCoalesceMs });
+const { flushAll } = writeCoalescer;
 const { setupDemo, wireDemoWebSocket } = require("./demo");
 
 const ANSI_RED = "\x1b[31m";
@@ -173,7 +173,7 @@ const server = app.listen(config.port, async () => {
     .catch((e) => console.warn("[bootstrap] warm-up error:", e.message));
 });
 
-const wss = setupWebSocket(server);
+const wss = setupWebSocket(server, { getVaultPath: config.getVaultPath });
 wireDemoWebSocket(server);
 
 async function gracefulShutdown(signal) {

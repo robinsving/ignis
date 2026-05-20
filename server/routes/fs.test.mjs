@@ -6,7 +6,7 @@ const require = createRequire(import.meta.url);
 const {
   resolveVaultPath,
   encodeContentDispositionFilename,
-} = require("./fs.js");
+} = require("@ignis/server-core");
 
 // -- encodeContentDispositionFilename --------------------------------
 

@@ -5,7 +5,7 @@ const fsp = fs.promises;
 const path = require("path");
 
 const config = require("../config");
-const watcher = require("../watcher");
+const { watcher } = require("@ignis/server-core");
 const bootstrapRoutes = require("../routes/bootstrap");
 
 const {

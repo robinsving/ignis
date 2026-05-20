@@ -5,9 +5,17 @@
 // Buffered writes respond to the HTTP client right away with synthetic mtime/size. Otherwise the browser's per-host connection cap blocks unrelated reads while writes sit in the buffer.
 
 const fs = require("fs");
-const config = require("./config");
 
 const FLUSH_TIMEOUT_MS = 10000;
+
+// Coalesce window in ms. 0 disables coalescing. Set via configure({ writeCoalesceMs }).
+let writeCoalesceMs = 0;
+
+function configure(opts) {
+  if (typeof opts?.writeCoalesceMs === "number") {
+    writeCoalesceMs = opts.writeCoalesceMs;
+  }
+}
 
 // absPath -> timestamp of last completed (or scheduled) write
 const lastWriteTime = new Map();
@@ -51,7 +59,7 @@ function scheduleFlush(absPath) {
   }
 
   clearTimeout(entry.timer);
-  entry.timer = setTimeout(() => flushEntry(absPath), config.writeCoalesceMs);
+  entry.timer = setTimeout(() => flushEntry(absPath), writeCoalesceMs);
 }
 
 function estimateSize(data, encoding) {
@@ -67,7 +75,7 @@ function estimateSize(data, encoding) {
  * Fresh writes resolve with real mtime/size once data is on disk. Buffered writes resolve immediately with synthetic values; the disk flush happens later when the debounce timer fires.
  */
 async function writeCoalesced(absPath, data, encoding) {
-  const windowMs = config.writeCoalesceMs;
+  const windowMs = writeCoalesceMs;
   const last = lastWriteTime.get(absPath);
 
   // Fast path: coalescing disabled or far enough from the last write.
@@ -159,4 +167,4 @@ function _reset() {
   lastWriteTime.clear();
 }
 
-module.exports = { writeCoalesced, getPending, flushAll, _reset };
+module.exports = { writeCoalesced, getPending, flushAll, configure, _reset };
