@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.8.2] - Karm (2026-05-23)
+
+### Fixed
+
+- Various app menus crash when "Use native menus" enabled. Solved by forcing the setting off internally; the on-disk value is preserved across toggles.
+- `/api/fs/rename` and `/api/fs/copyFile` reject missing path fields with 400 instead of silently resolving to the vault root.
+
 ## [0.8.1] - Karm (2026-05-17)
 
 ### Added

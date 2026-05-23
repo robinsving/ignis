@@ -54,7 +54,7 @@ volumes:
 
 Then `docker compose up -d`. On first start the container downloads Obsidian from the official source and installs the Obsidian Headless CLI. This takes a minute or two.
 
-To build from source instead of pulling the image, clone the repo and run `docker compose up` against the [`docker-compose.yml`](docker-compose.yml) in this directory -- it is already wired to build from the monorepo root.
+To build from source instead of pulling the image, clone the repo and run `docker compose up` against the [`docker-compose.yml`](docker-compose.yml) in this directory.
 
 ## Volumes
 
