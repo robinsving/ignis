@@ -1,6 +1,7 @@
 import { markLocalOp } from "./echo-guard.js";
 import { isInputCachePath, inputCacheGet } from "./input-cache.js";
 import { applyReadTransform, applyWriteTransform, resolvePath } from "./transforms.js";
+import { hasVirtualFile, getVirtualFile } from "./virtual-files.js";
 
 export function createFsPromises(metadataCache, contentCache, transport) {
   return {
@@ -48,6 +49,21 @@ export function createFsPromises(metadataCache, contentCache, transport) {
 
       const wantText = encoding === "utf8" || encoding === "utf-8";
       const resolved = resolvePath(path);
+
+      // Virtual plugin source overrides any cache/transport version.
+      if (hasVirtualFile(resolved)) {
+        const content = getVirtualFile(resolved);
+
+        if (wantText) {
+          return typeof content === "string"
+            ? content
+            : new TextDecoder().decode(content);
+        }
+
+        return typeof content === "string"
+          ? new TextEncoder().encode(content)
+          : content;
+      }
 
       let result = null;
 

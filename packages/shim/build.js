@@ -13,6 +13,10 @@ module.exports = esbuild.build({
   alias: {
     path: "path-browserify",
   },
+  loader: {
+    ".css": "text",
+  },
+  external: ["obsidian", "fs"],
   define: {
     __IGNIS_VERSION__: JSON.stringify(ignisVersion),
   },

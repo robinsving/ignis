@@ -8,9 +8,6 @@ Promise.all([
   // Build ignis-ui.js (delegated to packages/ui)
   require("./packages/ui/build.js"),
 
-  // Build ignis-bridge plugin (delegated to packages/bridge)
-  require("./packages/bridge/build.js"),
-
   // Build headless-sync bundled plugin
   esbuild.build({
     entryPoints: [

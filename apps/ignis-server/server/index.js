@@ -9,7 +9,10 @@ const {
   watcher,
   writeCoalescer,
 } = require("@ignis/server-core");
-const { updateBridgePluginInAllVaults } = require("./bridge-plugin");
+const {
+  BRIDGE_PLUGIN_ID,
+  migratePluginsFromAllVaults,
+} = require("./bridge-plugin");
 const { initPlugins, shutdownPlugins } = require("./plugin-system/manager");
 const pluginRoutes = require("./routes/plugins");
 writeCoalescer.configure({ writeCoalesceMs: config.writeCoalesceMs });
@@ -170,7 +173,7 @@ const server = app.listen(config.port, async () => {
   console.log(`[ignis] Vault root: ${config.vaultRoot}`);
   console.log(`[ignis] Vaults: ${Object.keys(config.vaults).join(", ")}`);
 
-  await updateBridgePluginInAllVaults(config.vaultRoot);
+  await migratePluginsFromAllVaults(config.vaultRoot, [BRIDGE_PLUGIN_ID]);
   await initPlugins({ app, config, wss, watcher });
   bootstrapRoutes
     .warmUp()

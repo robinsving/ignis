@@ -4,10 +4,23 @@ import { installCssOverrides } from "./css-overrides.js";
 import { initialize } from "./init.js";
 import { fsShim } from "./fs/index.js";
 import { registerUI } from "./ui-registry.js";
+import { extractObsidianModule } from "./virtual-plugin-loader.js";
 
 // __IGNIS_VERSION__ is replaced at build time from package.json.
 window.__ignis = { version: __IGNIS_VERSION__ };
 window.__ignis_registerUI = registerUI;
+
+const BRIDGE_MANIFEST = {
+  id: "ignis-bridge",
+  name: "Ignis Bridge",
+  version: __IGNIS_VERSION__,
+  minAppVersion: "1.12.4",
+  description:
+    "Additional Ignis specific functionality and ignis plugin management.",
+  author: "Nystik",
+  authorUrl: "https://github.com/Nystik-gh/ignis",
+  isDesktopOnly: false,
+};
 
 installGlobals(); // process, Buffer, window overrides (before require so Buffer is available)
 installRequire(); // shim registry, window.require
@@ -26,5 +39,16 @@ initialize(); // vault config, metadata cache, plugin prompt
 if (window.__currentVaultId) {
   fsShim._watcherClient.connect(window.__currentVaultId);
 }
+
+extractObsidianModule()
+  .then(async () => {
+    // Dynamic import so bridge's top-level require("obsidian") fires after installRequire + extractObsidianModule.
+    const mod = await import("@ignis/bridge");
+    const IgnisBridgePlugin = mod.default || mod;
+    const bridge = new IgnisBridgePlugin(window.app, BRIDGE_MANIFEST);
+    await bridge.onload();
+    console.log("[ignis] bridge loaded");
+  })
+  .catch((e) => console.error("[ignis] bridge load failed:", e));
 
 console.log("[ignis] Shim loader initialized");

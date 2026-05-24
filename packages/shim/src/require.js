@@ -67,3 +67,8 @@ export function installRequire() {
 
   installDebugHelpers(rawRegistry);
 }
+
+// For modules captured at runtime, e.g. the obsidian module via the virtual-plugin loader.
+export function registerShim(name, mod) {
+  shimRegistry[name] = mod;
+}

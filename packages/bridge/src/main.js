@@ -13,8 +13,6 @@ const { initStatusBar } = require("./status-bar");
 const { WorkspacePickerModal } = require("./workspace-picker");
 const { startDemoGuards, stopDemoGuards } = require("./demo-guards");
 
-window.__obsidianAPI = require("obsidian");
-
 class IgnisBridgePlugin extends Plugin {
   async onload() {
     if (!window.__ignis) {
