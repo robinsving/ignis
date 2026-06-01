@@ -66,7 +66,7 @@ Compatibility for specific community plugins is tracked in [Issue #9](https://gi
 **Multi-tab and workspaces.**
 - Live file sync between browser tabs via WebSocket: open the same vault in two tabs and edits propagate within a second. 
 - Saved workspaces can be opened in separate browser tabs via a `?workspace=` URL parameter, so each tab can hold a different layout of the same vault.
-- The bridge plugin adds an "Open workspace in tab" command to the command palette.
+- Ignis adds an "Open workspace in tab" command to the command palette.
 
 **Server-side sync.** 
 - Obsidian Headless is implemented as a server-side plugin that performs continuous sync without needing an active browser tab. Only one of Obsidian Sync or Obsidian Headless can run per vault.
