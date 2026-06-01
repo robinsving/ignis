@@ -1,6 +1,8 @@
 const api = require("./api");
 
-async function renderLogViewer(containerEl, vaultId, wsListener) {
+const CHANNEL = "plugin:headless-sync";
+
+async function renderLogViewer(containerEl, vaultId) {
   const details = containerEl.createEl("details", {
     cls: "ignis-log-details",
   });
@@ -32,19 +34,12 @@ async function renderLogViewer(containerEl, vaultId, wsListener) {
 
   logBox.scrollTop = logBox.scrollHeight;
 
-  if (!wsListener) {
-    return () => {};
-  }
+  const channel = window.__ignis.ws.channel(CHANNEL);
+  let unsubLog = null;
 
-  details.addEventListener("toggle", () => {
-    if (details.open) {
-      wsListener.subscribeLogs(vaultId);
-    } else {
-      wsListener.unsubscribeLogs();
-    }
-  });
+  const onLog = (msg) => {
+    const payload = msg.payload || {};
 
-  const onLog = (payload) => {
     if (payload.vaultId !== vaultId) {
       return;
     }
@@ -66,11 +61,22 @@ async function renderLogViewer(containerEl, vaultId, wsListener) {
     }
   };
 
-  wsListener.on("sync-log", onLog);
+  details.addEventListener("toggle", () => {
+    if (details.open) {
+      if (!unsubLog) {
+        unsubLog = channel.subscribe("sync-log", onLog);
+      }
+    } else if (unsubLog) {
+      unsubLog();
+      unsubLog = null;
+    }
+  });
 
   return () => {
-    wsListener.off("sync-log", onLog);
-    wsListener.unsubscribeLogs();
+    if (unsubLog) {
+      unsubLog();
+      unsubLog = null;
+    }
   };
 }
 

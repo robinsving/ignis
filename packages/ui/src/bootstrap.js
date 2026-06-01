@@ -47,42 +47,6 @@ function showConfirmDialog(
   });
 }
 
-function showPluginInstallDialog(vaultId) {
-  return new Promise((resolve) => {
-    const dialog = new window.IgnisUI.PluginInstallDialog({
-      target: document.body,
-    });
-
-    dialog.$on("install", async () => {
-      try {
-        await fetch("/api/vault/install-plugin", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ vault: vaultId }),
-        });
-      } catch (e) {
-        console.error("[ignis] Failed to install plugin:", e);
-      }
-      dialog.$destroy();
-      resolve("install");
-    });
-
-    dialog.$on("dismiss", async () => {
-      try {
-        await fetch("/api/vault/install-plugin", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ vault: vaultId, dismiss: true }),
-        });
-      } catch (e) {
-        console.error("[ignis] Failed to dismiss plugin prompt:", e);
-      }
-      dialog.$destroy();
-      resolve("dismiss");
-    });
-  });
-}
-
 function showPromptDialog(
   title,
   label,
@@ -113,7 +77,6 @@ if (typeof window !== "undefined" && window.__ignis_registerUI) {
     showVaultManager,
     showMessageDialog,
     showConfirmDialog,
-    showPluginInstallDialog,
     showPromptDialog,
   });
 } else if (typeof window !== "undefined") {

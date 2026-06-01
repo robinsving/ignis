@@ -8,6 +8,7 @@ import { createWatcherClient } from "./watcher-client.js";
 import { createFdOps } from "./fd.js";
 import { constants } from "./constants.js";
 import { registerReadTransform, removeReadTransform, resolvePath } from "./transforms.js";
+import { wsClient } from "../ws-client.js";
 
 const metadataCache = new MetadataCache();
 const contentCache = new ContentCache();
@@ -15,7 +16,7 @@ const contentCache = new ContentCache();
 const fsPromises = createFsPromises(metadataCache, contentCache, transport);
 const fsSync = createFsSync(metadataCache, contentCache, transport);
 const fsWatch = createFsWatch(transport);
-const watcherClient = createWatcherClient(metadataCache, contentCache, fsWatch);
+const watcherClient = createWatcherClient(metadataCache, contentCache, fsWatch, wsClient);
 const fdOps = createFdOps(metadataCache, contentCache, transport);
 
 export const fsShim = {

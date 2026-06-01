@@ -9,7 +9,7 @@ COPY package.json package-lock.json ./
 COPY packages/services/package.json ./packages/services/
 COPY packages/shim/package.json ./packages/shim/
 COPY packages/ui/package.json ./packages/ui/
-COPY packages/bridge-plugin/package.json ./packages/bridge-plugin/
+COPY packages/bridge/package.json ./packages/bridge/
 COPY packages/server-core/package.json ./packages/server-core/
 COPY apps/ignis-server/package.json ./apps/ignis-server/
 
@@ -38,7 +38,7 @@ COPY package.json package-lock.json ./
 COPY packages/services/package.json ./packages/services/
 COPY packages/shim/package.json ./packages/shim/
 COPY packages/ui/package.json ./packages/ui/
-COPY packages/bridge-plugin/package.json ./packages/bridge-plugin/
+COPY packages/bridge/package.json ./packages/bridge/
 COPY packages/server-core/package.json ./packages/server-core/
 COPY apps/ignis-server/package.json ./apps/ignis-server/
 
@@ -50,15 +50,11 @@ COPY apps/ignis-server/scripts/ ./apps/ignis-server/scripts/
 COPY images/ ./images/
 COPY packages/server-core/src/ ./packages/server-core/src/
 
-# Bridge plugin: manifest + styles for auto-install into vaults; built main.js comes from the build stage.
-COPY packages/bridge-plugin/manifest.json ./packages/bridge-plugin/
-COPY packages/bridge-plugin/styles.css ./packages/bridge-plugin/
-
 # Built artifacts from the build stage.
 COPY --from=build /app/packages/shim/dist/shim-loader.js ./packages/shim/dist/shim-loader.js
 COPY --from=build /app/packages/ui/dist/ignis-ui.js ./packages/ui/dist/ignis-ui.js
-COPY --from=build /app/packages/bridge-plugin/main.js ./packages/bridge-plugin/main.js
-COPY --from=build /app/apps/ignis-server/server/plugins/headless-sync/plugin/main.js ./apps/ignis-server/server/plugins/headless-sync/plugin/main.js
+COPY --from=build /app/apps/ignis-server/server/build-info.json ./apps/ignis-server/server/build-info.json
+COPY --from=build /app/apps/ignis-server/server/plugins/headless-sync/obsidian/dist/ ./apps/ignis-server/server/plugins/headless-sync/obsidian/dist/
 
 RUN chmod +x /app/apps/ignis-server/scripts/entrypoint.sh
 

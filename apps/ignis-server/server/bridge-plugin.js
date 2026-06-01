@@ -1,46 +1,42 @@
 const fs = require("fs");
 const path = require("path");
-const {
-  installObsidianPlugin,
-  isObsidianPluginInstalled,
-} = require("./plugin-system/obsidian-plugin");
 
 const BRIDGE_PLUGIN_ID = "ignis-bridge";
-const BRIDGE_PLUGIN_DIR = path.join(__dirname, "..", "..", "..", "packages", "bridge-plugin");
 
-// .ignis metadata helpers
+// Old vaults still have bridge in .obsidian/plugins from before it became virtual.
+async function migratePluginFromVault(vaultPath, vaultName, pluginId) {
+  let didWork = false;
 
-async function getIgnisMeta(vaultPath) {
-  const metaFile = path.join(vaultPath, ".ignis", "meta.json");
+  const pluginDir = path.join(vaultPath, ".obsidian", "plugins", pluginId);
+
+  if (await fs.promises.stat(pluginDir).catch(() => null)) {
+    await fs.promises.rm(pluginDir, { recursive: true, force: true });
+    didWork = true;
+  }
+
+  const cpFile = path.join(vaultPath, ".obsidian", "community-plugins.json");
 
   try {
-    const content = await fs.promises.readFile(metaFile, "utf-8");
-    return JSON.parse(content);
-  } catch {
-    return {};
+    const list = JSON.parse(await fs.promises.readFile(cpFile, "utf-8"));
+
+    if (Array.isArray(list)) {
+      const filtered = list.filter((id) => id !== pluginId);
+
+      if (filtered.length !== list.length) {
+        await fs.promises.writeFile(cpFile, JSON.stringify(filtered));
+        didWork = true;
+      }
+    }
+  } catch {}
+
+  if (didWork) {
+    console.log(`[ignis] Migrated ${pluginId} out of vault: ${vaultName}`);
   }
+
+  return didWork;
 }
 
-async function setIgnisMeta(vaultPath, data) {
-  const ignisDir = path.join(vaultPath, ".ignis");
-  const metaFile = path.join(ignisDir, "meta.json");
-
-  await fs.promises.mkdir(ignisDir, { recursive: true });
-  await fs.promises.writeFile(metaFile, JSON.stringify(data, null, 2));
-}
-
-// Bridge plugin install/check
-
-async function isBridgePluginInstalled(vaultPath) {
-  return isObsidianPluginInstalled(BRIDGE_PLUGIN_ID, vaultPath);
-}
-
-async function installBridgePlugin(vaultPath) {
-  const result = await installObsidianPlugin(BRIDGE_PLUGIN_DIR, vaultPath);
-  return result.installed;
-}
-
-async function updateBridgePluginInAllVaults(vaultRoot) {
+async function migratePluginsFromAllVaults(vaultRoot, pluginIds) {
   if (!(await fs.promises.stat(vaultRoot).catch(() => null))) {
     return;
   }
@@ -53,18 +49,14 @@ async function updateBridgePluginInAllVaults(vaultRoot) {
     }
 
     const vaultPath = path.join(vaultRoot, entry.name);
-    const installed = await installBridgePlugin(vaultPath);
 
-    if (installed) {
-      console.log(`[ignis] Installed bridge plugin in vault: ${entry.name}`);
+    for (const pluginId of pluginIds) {
+      await migratePluginFromVault(vaultPath, entry.name, pluginId);
     }
   }
 }
 
 module.exports = {
-  installBridgePlugin,
-  updateBridgePluginInAllVaults,
-  isBridgePluginInstalled,
-  getIgnisMeta,
-  setIgnisMeta,
+  BRIDGE_PLUGIN_ID,
+  migratePluginsFromAllVaults,
 };

@@ -1,6 +1,6 @@
 // Vault provisioning for demo sessions.
 //
-// Copies the template into a session-prefixed dir, installs the bridge plugin, and registers the vault on the session.
+// Copies the template into a session-prefixed dir and registers the vault on the session.
 // Re-provisions if disk was wiped under an existing session.
 
 const fs = require("fs");
@@ -8,7 +8,6 @@ const fsp = fs.promises;
 const path = require("path");
 
 const config = require("../config");
-const { installBridgePlugin } = require("../bridge-plugin");
 const bootstrapRoutes = require("../routes/bootstrap");
 
 const { sessions, makeStorageName } = require("./demo-sessions");
@@ -95,9 +94,6 @@ async function provisionVault(sessionId, userVaultName) {
 
   // Copy template (default: Welcome.md, Getting Started.md, .obsidian/*).
   await fsp.cp(config.demoTemplateDir, vaultPath, { recursive: true });
-
-  // Install bridge plugin
-  await installBridgePlugin(vaultPath);
 
   config.refreshVaults();
   bootstrapRoutes.invalidateVault(storageName);

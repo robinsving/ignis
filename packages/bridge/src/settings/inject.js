@@ -2,6 +2,7 @@ const generalTab = require("./general-tab");
 const serverPluginsTab = require("./server-plugins-tab");
 const { createNavEl, createTab, createGroup } = require("./settings-ui");
 const {
+  allIgnisNavEls,
   setupPluginTabs,
   reconcilePluginTabs,
   hideIgnisFromCommunityPlugins,
@@ -23,10 +24,6 @@ function removeExistingIgnisGroups(tabHeadersEl) {
     }
   }
 }
-
-// All ignis-managed nav elements (both Ignis group and Ignis Core Plugins group).
-// Collected here so the openTab patch can manage is-active across all of them.
-const allIgnisNavEls = new Map(); // tab id -> nav element
 
 function replaceInstallerVersionRow(setting, ignisVersion) {
   const container = setting.tabContentContainer || setting.contentEl;
@@ -117,7 +114,7 @@ function injectIgnisSettings(setting, app, plugin) {
   setting.tabHeadersEl.appendChild(corePlugins.group);
 
   hideIgnisFromCommunityPlugins(setting);
-  setupPluginTabs(setting, corePlugins.items, allIgnisNavEls);
+  setupPluginTabs(setting, corePlugins.items);
 }
 
 function patchSettingsModal(plugin) {
@@ -141,8 +138,5 @@ function unpatchSettingsModal(plugin) {
   restoreCommunityPlugins(plugin.app.setting);
   clearOwnedPluginIds();
 }
-
-window.__ignisReconcilePluginTabs = (setting) =>
-  reconcilePluginTabs(setting, allIgnisNavEls);
 
 module.exports = { patchSettingsModal, unpatchSettingsModal, reconcilePluginTabs };

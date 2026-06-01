@@ -32,13 +32,12 @@ function showConflictWarning(title, message) {
   });
 }
 
-function startCoreSyncGuard(plugin, api, wsListener) {
+function startCoreSyncGuard(plugin, api) {
   const app = plugin.app;
   const vaultId = app.vault.getName();
 
-  // Monkey-patch syncPlugin.enable() to clear the shim flag before
-  // Obsidian writes core-plugins.json. This ensures the read transform
-  // doesn't block a user-initiated core sync enable.
+  // Monkey-patch syncPlugin.enable() to clear the shim flag before Obsidian writes core-plugins.json.
+  // This ensures the read transform doesn't block a user-initiated core sync enable.
   const syncPlugin = app.internalPlugins.getPluginById("sync");
   let origEnable = null;
 
@@ -52,16 +51,13 @@ function startCoreSyncGuard(plugin, api, wsListener) {
     };
   }
 
-  // Watch for core-plugins.json changes via WebSocket.
   let wasEnabled = isCoreSyncEnabled();
 
-  const rawHandler = (msg) => {
-    if (msg.type === "modified" && msg.path === CORE_PLUGINS_PATH) {
+  const unsubModified = window.__ignis.ws.subscribe("modified", (msg) => {
+    if (msg.path === CORE_PLUGINS_PATH) {
       handleCoreSyncChange();
     }
-  };
-
-  wsListener.onRaw(rawHandler);
+  });
 
   function handleCoreSyncChange() {
     const enabled = isCoreSyncEnabled();
@@ -80,7 +76,7 @@ function startCoreSyncGuard(plugin, api, wsListener) {
 
   return {
     cleanup() {
-      wsListener.offRaw();
+      unsubModified();
 
       if (syncPlugin && origEnable) {
         syncPlugin.enable = origEnable;

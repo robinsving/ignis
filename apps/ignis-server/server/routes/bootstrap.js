@@ -9,8 +9,11 @@ const fsp = fs.promises;
 const path = require("path");
 const zlib = require("zlib");
 const config = require("../config");
-const { isBridgePluginInstalled, getIgnisMeta } = require("../bridge-plugin");
-const { getDiscoveredPlugins } = require("../plugin-system/manager");
+const {
+  getDiscoveredPlugins,
+  getVirtualPluginsForVault,
+} = require("../plugin-system/manager");
+const { getVersion } = require("../version");
 
 const router = express.Router();
 
@@ -76,20 +79,13 @@ async function walkTree(rootPath) {
   return { tree, dirMtimes };
 }
 
-async function buildVaultInfo(vaultId, vaultPath) {
-  const pluginInstalled = await isBridgePluginInstalled(vaultPath);
-  const ignisMeta = await getIgnisMeta(vaultPath);
-
+function buildVaultInfo(vaultId, vaultPath) {
   return {
     id: vaultId,
     name: vaultId,
     path: vaultPath,
     platform: process.platform,
     version: config.obsidianVersion,
-    ignisPlugin: {
-      installed: pluginInstalled,
-      prompted: ignisMeta.pluginPrompted || false,
-    },
   };
 }
 
@@ -134,10 +130,8 @@ async function buildEntry(vaultId) {
   }
 
   const t0 = Date.now();
-  const [vault, { tree, dirMtimes }] = await Promise.all([
-    buildVaultInfo(vaultId, vaultPath),
-    walkTree(vaultPath),
-  ]);
+  const vault = buildVaultInfo(vaultId, vaultPath);
+  const { tree, dirMtimes } = await walkTree(vaultPath);
 
   const response = {
     vault,
@@ -145,6 +139,7 @@ async function buildEntry(vaultId) {
     tree,
     // In demo mode, hide server-side plugins from the client.
     plugins: config.demoMode ? [] : getDiscoveredPlugins(),
+    virtualPlugins: getVirtualPluginsForVault(vaultId, getVersion()),
   };
 
   const jsonBuf = Buffer.from(JSON.stringify(response));

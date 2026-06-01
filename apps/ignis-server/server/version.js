@@ -1,23 +1,51 @@
 const fs = require("fs");
 const path = require("path");
-const { execSync } = require("child_process");
 
-function getVersion() {
-  const pkg = JSON.parse(
-    fs.readFileSync(path.join(__dirname, "..", "package.json"), "utf-8"),
-  );
-  const semver = pkg.version;
+let cached = null;
 
-  let hash;
-  try {
-    hash = execSync("git rev-parse --short=7 HEAD", {
-      encoding: "utf-8",
-    }).trim();
-  } catch (e) {
-    hash = Date.now().toString(36).slice(-7);
+function load() {
+  if (cached) {
+    return cached;
   }
 
-  return `${semver}-${hash}`;
+  // Production: root build.js writes this next to us.
+  try {
+    cached = JSON.parse(
+      fs.readFileSync(path.join(__dirname, "build-info.json"), "utf-8"),
+    );
+    return cached;
+  } catch {}
+
+  // Local dev fallback. Read root package.json.
+  try {
+    const pkg = JSON.parse(
+      fs.readFileSync(
+        path.join(__dirname, "..", "..", "..", "package.json"),
+        "utf-8",
+      ),
+    );
+    cached = {
+      semver: pkg.version,
+      build: "dev",
+      version: `${pkg.version}-dev`,
+    };
+    return cached;
+  } catch {}
+
+  cached = { semver: "0.0.0", build: "unknown", version: "0.0.0-unknown" };
+  return cached;
 }
 
-module.exports = { getVersion };
+function getVersion() {
+  return load().version;
+}
+
+function getSemver() {
+  return load().semver;
+}
+
+function getBuild() {
+  return load().build;
+}
+
+module.exports = { getVersion, getSemver, getBuild };

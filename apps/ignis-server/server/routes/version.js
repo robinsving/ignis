@@ -1,15 +1,14 @@
 const express = require("express");
-const { getVersion } = require("../version");
+const { getSemver, getBuild } = require("../version");
 const config = require("../config");
 
 const router = express.Router();
 
+// `version` is the display-friendly SemVer. `build` is the per-build stamp for cache-bust.
 router.get("/", (req, res) => {
-  const pkg = require("../../package.json");
-
   res.json({
-    version: getVersion(),
-    semver: pkg.version,
+    version: getSemver(),
+    build: getBuild(),
     obsidianVersion: config.obsidianVersion,
   });
 });

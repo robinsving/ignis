@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.8.3] - Karm (2026-06-01)
+
+### Added
+
+- `WS_ORIGINS` env var to restrict allowed `Origin` headers on WebSocket connections.
+
+### Fixed
+
+- Ignis version is now rendered correctly.
+- Tables in editing mode now render correctly in Firefox.
+
 ## [0.8.2] - Karm (2026-05-23)
 
 ### Fixed

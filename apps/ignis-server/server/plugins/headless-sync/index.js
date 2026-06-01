@@ -11,7 +11,7 @@ module.exports = {
   version: "0.3.0",
   //TODO: add server plugin manifest
 
-  obsidianPlugin: path.join(__dirname, "plugin"),
+  obsidianPlugin: path.join(__dirname, "obsidian"),
 
   _ctx: null,
   _obStatus: null,
@@ -63,22 +63,9 @@ module.exports = {
 
     const { mountRoutes } = require("./routes");
     mountRoutes(ctx.router, this);
-
-    // Register WebSocket message handler for log subscriptions
-    if (ctx.wss && ctx.wss.messageHandlers) {
-      ctx.wss.messageHandlers.set("subscribe-logs", (msg) => {
-        if (msg.vaultId && this._broadcaster) {
-          this._broadcaster.subscribeToLogs(msg.vaultId);
-        }
-      });
-    }
   },
 
   async shutdown() {
-    if (this._ctx?.wss?.messageHandlers) {
-      this._ctx.wss.messageHandlers.delete("subscribe-logs");
-    }
-
     if (this._syncManager) {
       await this._syncManager.shutdown();
       this._syncManager = null;

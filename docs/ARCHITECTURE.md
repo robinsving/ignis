@@ -13,12 +13,13 @@ Ignis runs Obsidian in a browser by replacing its Electron backend with a shim l
   - [IPC](#ipc)
   - [Cross-origin requests](#cross-origin-requests)
   - [Workspaces in browser tabs](#workspaces-in-browser-tabs)
+- [Bridge](#bridge)
 - [Vaults](#vaults)
 - [Server](#server)
 - [Plugins](#plugins)
   - [Obsidian Plugins](#obsidian-plugins)
-  - [Bridge Plugin (ignis-bridge)](#bridge-plugin-ignis-bridge)
   - [Ignis Plugins](#ignis-plugins)
+  - [Virtual Plugins](#virtual-plugins)
 - [Demo mode](#demo-mode)
 
 ## Overview
@@ -31,13 +32,13 @@ Browser                          Server
 │ Shim layer           │ <────>  │   /api/vault/*       │
 │   fs, electron, etc. │   WS    │   /api/plugins/*     │
 │         ↕            │ <────>  │   /api/ext/:plugin/* │
-│ Bridge plugin        │         │ Ignis plugins        │
+│ Bridge               │         │ Ignis plugins        │
 └──────────────────────┘         └──────────────────────┘
                                           ↕
                                     Filesystem (vaults/)
 ```
 
-The shim layer makes Obsidian think it's running in Electron. The bridge plugin adds Ignis-specific features inside Obsidian.
+The shim layer makes Obsidian think it's running in Electron. The bridge adds Ignis-specific features inside Obsidian.
 
 ## Shim Layer
 
@@ -111,6 +112,18 @@ The implementation uses all three transforms (above): a path resolver redirects 
 
 Two tabs in the same workspace share the same state file and stay in sync through the file watcher. Two tabs in different workspaces hold independent layout state.
 
+## Bridge
+
+Ignis's built-in integration with the Obsidian UI. It subclasses Obsidian's `Plugin` to get convenient hooks (commands, ribbon icons, status bar items, settings tabs, workspace events), but it is not a plugin in the managed sense: it isn't discovered, toggled, enabled per vault, or installed into `.obsidian/plugins/`. It's bundled into `shim-loader.js` (source in `packages/bridge/`), instantiated directly by the shim loader after Obsidian boots, and always on.
+
+The bridge contributes:
+
+- **File actions**: a ribbon icon for uploading files into the current folder, and right-click menu items: Download (single file), Download as ZIP (folder), and Upload file (folder).
+- **Commands**: `Open workspace in new tab`.
+- **Status bar item**: a dot showing the WebSocket connection state to the Ignis server.
+- **Settings injection**: monkey-patches `app.setting.onOpen` to add two tabs in their own "Ignis" sidebar group. Each enabled Ignis plugin's companion is pulled into a separate "Ignis Core Plugins" sidebar group.
+- **Demo guards**: in demo mode, a MutationObserver disables every email/password input that appears anywhere in the document.
+
 ## Vaults
 
 Any subdirectory under the vault root is treated as a vault. The active vault is selected via a `?vault=` URL parameter. Without the queryparam, the last active vault is loaded (from `localStorage.last-vault`), or the first discovered.
@@ -124,45 +137,38 @@ An Express server that handles filesystem operations, vault management, static f
 - `/api/vault/*` - vault CRUD and config.
 - `/api/bootstrap` - one-shot cold-start endpoint; returns vault info + list + metadata tree + plugin list as a single pre-compressed response, cached per vault with mtime-based invalidation.
 - `/api/proxy` - cross-origin HTTP proxy used by the fetch and requestUrl shims.
-- `/api/version` - server version and git hash.
+- `/api/version` - Ignis version (SemVer), per-build identifier, and pinned Obsidian version.
 - `/api/plugins/*` - Ignis plugin management (list, enable, disable). __WIP__
 - `/api/ext/:pluginId/*` - routes registered by individual Ignis plugins.
 - `/vault-files/<vaultId>/<path>` - static file serving rooted at a vault, used by Obsidian for image/attachment resource URLs.
 
 **WebSocket:** A file watcher monitors vault directories and pushes change events to connected clients, keeping the client-side metadata and content caches in sync. An echo guard suppresses events caused by the same client's recent writes so they don't bounce back. The watcher also carries plugin-defined message types (e.g. headless-sync status broadcasts).
 
-**Bridge plugin auto-install:** On server startup and on vault creation, the server copies the ignis-bridge plugin into each vault's `.obsidian/plugins/` directory.
+**Legacy bridge cleanup:** Earlier versions installed the bridge into each vault's `.obsidian/plugins/`. The bridge is now bundled into the shim and loaded client-side, so on startup the server removes any leftover on-disk `ignis-bridge` install from each vault (and strips it from `community-plugins.json`).
 
 ## Plugins
 
-Three things are called "plugin" in this project.
+Aside from the built-in [Bridge](#bridge), three kinds of plugin exist in Ignis, distinguished by who loads them and where they run.
 
 ### Obsidian Plugins
 
 Standard community and core Obsidian plugins. Obsidian evals plugin code with its own require that checks its internal module map first, then falls back to the window-level require, which Ignis replaces with the shim. Plugins that use the filesystem, path utilities, or crypto get shim implementations transparently. Plugins that need child processes, raw sockets, or native addons load but throw on first use; the error message names the missing API.
 
-### Bridge Plugin (ignis-bridge)
-
-An Obsidian plugin auto-installed into every vault by the server. Source lives in `packages/bridge-plugin/`, built to `packages/bridge-plugin/main.js`.
-
-It contributes:
-- **File actions**: a ribbon icon for uploading files into the current folder, and right-click menu items: Download (single file), Download as ZIP (folder), and Upload file (folder).
-- **Commands**: `Open workspace in new tab` (with a FuzzySuggestModal listing saved workspaces).
-- **Status bar item**: a dot showing the WebSocket connection state to the Ignis server.
-- **Settings injection**: monkey-patches `app.setting.onOpen` to add two tabs in their own "Ignis" sidebar group. General (server status, version, GitHub link, update check against the GitHub releases API) and Core plugins (toggle the bundled Obsidian plugins of enabled Ignis plugins on/off per vault). Each enabled Ignis plugin's bundled Obsidian plugin also gets pulled into a separate "Ignis Core Plugins" sidebar group.
-- **Demo guards**: in demo mode, a MutationObserver disables every email/password input that appears anywhere in the document and rewrites its placeholder.
-
-Not user-installable through Obsidian's plugin browser. Managed entirely by the server.
-
 ### Ignis Plugins
 
-A basic plugin system for extending the server. Still early, the core lifecycle works but the API surface is minimal and likely to change.
+A plugin system for extending the server. Still early, the core lifecycle works but the API surface is minimal and likely to change.
 
-An Ignis plugin is a Node.js package under `apps/ignis-server/server/plugins/<name>/` that exports an id, name, and a `register` function. On load it receives a context object with access to config, the WebSocket server, a file watcher, an Express router, a logger, and a persistent data directory. Plugins are enabled and disabled per vault, with state persisted in `data/plugin-config.json`.
+An Ignis plugin is a Node.js package under `apps/ignis-server/server/plugins/<name>/` that exports an id, name, and a `register` function. On load it receives a context object with access to config, the WebSocket server, a file watcher, an Express router, a logger, and a persistent data directory. Plugins are enabled and disabled per vault, with state persisted in `data/plugin-config.json`. When enabled, a plugin's Express router is mounted at `/api/ext/<pluginId>/`.
 
-When enabled, a plugin's Express router is mounted at `/api/ext/<pluginId>/`. A plugin can also optionally bundle an Obsidian plugin, a directory containing a standard Obsidian plugin (manifest.json, main.js) that gets auto-installed into the vault on enable and removed on disable. This bridges the server and client sides: the Ignis plugin handles server logic and routes, while the bundled Obsidian plugin provides the in-app UI or behavior.
+An Ignis plugin can optionally ship a **virtual plugin** (see below): an Obsidian-side companion that provides the in-app UI. The Ignis plugin handles server logic and routes; the virtual plugin runs in the browser.
 
-The one Ignis plugin currently in the repo is **headless-sync** (`apps/ignis-server/server/plugins/headless-sync/`). It wraps the [obsidian-headless](https://github.com/Yuri-Khomyakov/obsidian-headless) CLI (`ob`) and runs `ob sync --continuous` as a per-vault child process, optionally with `--pull-only` or `--mirror-remote`. Process state (running/stopped/error, pid, last activity, recent log lines) is broadcast over the WebSocket via a small per-vault subscription protocol. The bundled Obsidian plugin (`ignis-headless-sync`) adds a status bar item, a settings tab with start/stop/unlink controls, and a core-sync guard that hides Obsidian's own Sync setting from `core-plugins.json` reads while headless sync is active for that vault, so a different device syncing the "Active core plugins list" can't accidentally re-enable it.
+The one Ignis plugin currently in the repo is **headless-sync** (`apps/ignis-server/server/plugins/headless-sync/`). It wraps the [obsidian-headless](https://github.com/obsidianmd/obsidian-headless) CLI (`ob`) and runs `ob sync --continuous` as a per-vault child process, optionally with `--pull-only` or `--mirror-remote`. Process state (running/stopped/error, pid, last activity, recent log lines) is broadcast to subscribed clients over a WebSocket channel.
+
+### Virtual Plugins
+
+The client-side companion of an Ignis plugin: a standard Obsidian plugin (a `manifest.json` plus a bundled script) that Ignis loads in the browser rather than installing to disk. The virtual-plugin-loader (`packages/shim/src/virtual-plugin-loader.js`) fetches the bundle from the server, evals it, instantiates the plugin class against the live `app`. Loaded instances are tracked in `window.__ignis.plugins` and can be toggled per vault. Nothing is ever written to `.obsidian/plugins/`.
+
+headless-sync's companion (`ignis-headless-sync`) adds a status bar item, a settings tab with start/stop/unlink controls, and a core-sync guard that hides Obsidian's own Sync setting from `core-plugins.json` reads while headless sync is active for that vault, so a different device syncing the "Active core plugins list" can't accidentally re-enable it.
 
 ## Demo mode
 

@@ -1,7 +1,6 @@
 import { fsShim } from "./fs/index.js";
 import { installRequestUrlShim } from "./request-url.js";
 import { vaultService } from "@ignis/services";
-import { showPluginInstallDialog } from "./ui-registry.js";
 import { registerReadTransform } from "./fs/transforms.js";
 import {
   resolveWorkspaceName,
@@ -11,6 +10,12 @@ import {
 import { prefetchVaultContent } from "./fs/indexer-prefetch.js";
 import { autoTrustDemoVaults, maybeProvisionDemoVault } from "./demo.js";
 import { initNativeMenuGuard } from "./native-menu-guard.js";
+
+let bootstrapVirtualPlugins = [];
+
+export function getBootstrapVirtualPlugins() {
+  return bootstrapVirtualPlugins;
+}
 
 function resolveVaultId() {
   const urlParams = new URLSearchParams(window.location.search);
@@ -55,8 +60,6 @@ function applyVaultInfo(info) {
     id: info.id,
     path: "/",
   };
-
-  window.__ignisPlugin = info.ignisPlugin || null;
 
   console.log("[ignis] Vault:", window.__vaultConfig);
   console.log("[ignis] Obsidian version:", window.__obsidianVersion);
@@ -122,30 +125,6 @@ function initMetadataCacheFallback() {
   } catch (e) {
     console.error("[ignis] Failed to init metadata cache:", e);
   }
-}
-
-function initPluginPrompt() {
-  if (
-    !window.__ignisPlugin ||
-    window.__ignisPlugin.installed ||
-    window.__ignisPlugin.prompted
-  ) {
-    return;
-  }
-
-  const vaultId = window.__currentVaultId;
-
-  const observer = new MutationObserver(() => {
-    if (document.querySelector(".workspace")) {
-      observer.disconnect();
-      showPluginInstallDialog(vaultId);
-    }
-  });
-
-  observer.observe(document.documentElement, {
-    childList: true,
-    subtree: true,
-  });
 }
 
 // if headless sync is active, we transform reads of core-plugins.json to hide the sync setting from Obsidian.
@@ -232,6 +211,7 @@ export function initialize() {
     autoTrustDemoVaults(bootstrap.vaultList);
     applyTree(bootstrap.tree);
     applyCoreSyncGuard(bootstrap.plugins);
+    bootstrapVirtualPlugins = bootstrap.virtualPlugins || [];
 
     // Race the indexer: batch-fetch text content into ContentCache so
     // Obsidian's startup indexing reads hit the cache instead of the network.
@@ -249,5 +229,4 @@ export function initialize() {
 
   installRequestUrlShim();
   initWorkspacePatch();
-  initPluginPrompt();
 }

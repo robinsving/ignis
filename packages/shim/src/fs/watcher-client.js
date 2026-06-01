@@ -1,143 +1,83 @@
-// Client-side WebSocket file watcher.
-// Connects to the server's /ws endpoint, receives file change events,
-// updates the metadata/content caches, and dispatches to fs.watch listeners
-// so Obsidian's vault picks them up automatically.
+// Bridges WebSocket file events to the fs shim's metadata/content caches and fs.watch listeners.
+// The WebSocket itself is owned by ws-client.js; this module is a consumer.
 
 import { isRecentLocalOp } from "./echo-guard.js";
 
-const RECONNECT_DELAY = 2000;
+export function createWatcherClient(metadataCache, contentCache, fsWatch, wsClient) {
+  function handleCreated(msg) {
+    const { path, stat } = msg;
 
-export function createWatcherClient(metadataCache, contentCache, fsWatch) {
-  let ws = null;
-  let vaultId = null;
-  let reconnectTimer = null;
-
-  function connect(vault) {
-    vaultId = vault;
-
-    if (!vaultId) {
-      console.warn("[watcher] No vault ID, skipping WebSocket connection");
+    if (!path || isRecentLocalOp(path)) {
       return;
     }
 
-    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const url = `${protocol}//${window.location.host}/ws?vault=${encodeURIComponent(vaultId)}`;
-
-    try {
-      ws = new WebSocket(url);
-      window.__ignisWs = ws;
-    } catch (e) {
-      console.error("[watcher] Failed to create WebSocket:", e);
-      scheduleReconnect();
-      return;
+    if (stat) {
+      metadataCache.set(path, {
+        type: "file",
+        size: stat.size,
+        mtime: stat.mtime,
+        ctime: stat.ctime,
+      });
     }
 
-    ws.onopen = () => {
-      console.log("[watcher] Connected to file watcher");
-    };
-
-    ws.onmessage = (event) => {
-      try {
-        const msg = JSON.parse(event.data);
-        handleEvent(msg);
-      } catch (e) {
-        console.error("[watcher] Failed to parse message:", e);
-      }
-    };
-
-    ws.onclose = () => {
-      console.log("[watcher] Disconnected");
-      ws = null;
-      scheduleReconnect();
-    };
-
-    ws.onerror = (e) => {
-      console.error("[watcher] WebSocket error:", e);
-    };
+    contentCache.invalidate(path);
+    fsWatch._dispatch("created", path);
   }
 
-  function scheduleReconnect() {
-    if (reconnectTimer) return;
+  function handleFolderCreated(msg) {
+    const { path } = msg;
 
-    reconnectTimer = setTimeout(() => {
-      reconnectTimer = null;
+    if (!path || isRecentLocalOp(path)) {
+      return;
+    }
 
-      if (vaultId) {
-        console.log("[watcher] Reconnecting...");
-        connect(vaultId);
-      }
-    }, RECONNECT_DELAY);
+    metadataCache.set(path, { type: "directory" });
+    fsWatch._dispatch("folder-created", path);
   }
 
-  function handleEvent(msg) {
-    // Skip channel-based plugin messages, those are for other listeners
-    if (msg.channel) {
+  function handleModified(msg) {
+    const { path, stat } = msg;
+
+    if (!path || isRecentLocalOp(path)) {
       return;
     }
 
-    const { type, path, stat } = msg;
+    if (stat) {
+      metadataCache.set(path, {
+        type: "file",
+        size: stat.size,
+        mtime: stat.mtime,
+        ctime: stat.ctime,
+      });
+    }
 
-    if (!type || !path) return;
+    contentCache.invalidate(path);
+    fsWatch._dispatch("modified", path);
+  }
 
-    // Suppress echo from our own operations
-    if (isRecentLocalOp(path)) {
+  function handleDeleted(msg) {
+    const { path } = msg;
+
+    if (!path || isRecentLocalOp(path)) {
       return;
     }
 
-    switch (type) {
-      case "created":
-        if (stat) {
-          metadataCache.set(path, {
-            type: "file",
-            size: stat.size,
-            mtime: stat.mtime,
-            ctime: stat.ctime,
-          });
-        }
-        contentCache.invalidate(path);
-        fsWatch._dispatch("created", path);
-        break;
+    metadataCache.delete(path);
+    contentCache.invalidate(path);
+    fsWatch._dispatch("deleted", path);
+  }
 
-      case "folder-created":
-        metadataCache.set(path, { type: "directory" });
-        fsWatch._dispatch("folder-created", path);
-        break;
+  wsClient.subscribe("created", handleCreated);
+  wsClient.subscribe("folder-created", handleFolderCreated);
+  wsClient.subscribe("modified", handleModified);
+  wsClient.subscribe("deleted", handleDeleted);
 
-      case "modified":
-        if (stat) {
-          metadataCache.set(path, {
-            type: "file",
-            size: stat.size,
-            mtime: stat.mtime,
-            ctime: stat.ctime,
-          });
-        }
-        contentCache.invalidate(path);
-        fsWatch._dispatch("modified", path);
-        break;
-
-      case "deleted":
-        metadataCache.delete(path);
-        contentCache.invalidate(path);
-        fsWatch._dispatch("deleted", path);
-        break;
-
-      default:
-        console.warn("[watcher] Unknown event type:", type);
-    }
+  function connect(vaultId) {
+    wsClient.connect(vaultId);
   }
 
   function disconnect() {
-    if (reconnectTimer) {
-      clearTimeout(reconnectTimer);
-      reconnectTimer = null;
-    }
-
-    if (ws) {
-      ws.onclose = null; // prevent reconnect
-      ws.close();
-      ws = null;
-    }
+    wsClient.disconnect();
   }
 
   return {

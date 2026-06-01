@@ -5,8 +5,7 @@ const REPO_ROOT = path.join(__dirname, "..", "..", "..");
 
 // VAULT_ROOT: a directory that contains vault folders.
 // Each subdirectory is a vault. New vaults are created as new subdirs.
-const vaultRoot =
-  process.env.VAULT_ROOT || path.join(REPO_ROOT, "vaults");
+const vaultRoot = process.env.VAULT_ROOT || path.join(REPO_ROOT, "vaults");
 
 const dataRoot = process.env.DATA_ROOT || path.join(REPO_ROOT, "data");
 
@@ -81,6 +80,12 @@ module.exports = {
       ? parseInt(process.env.WRITE_COALESCE_MS)
       : 5000,
 
+  wsOrigins: process.env.WS_ORIGINS
+    ? process.env.WS_ORIGINS.split(",")
+        .map((s) => s.trim())
+        .filter(Boolean)
+    : null,
+
   demoMode: process.env.DEMO_MODE === "true",
   demoMaxSessions: parseInt(process.env.DEMO_MAX_SESSIONS) || 20,
   demoVaultsPerSession: parseInt(process.env.DEMO_VAULTS_PER_SESSION) || 3,
@@ -88,8 +93,7 @@ module.exports = {
     parseInt(process.env.DEMO_SESSION_QUOTA_BYTES) || 700 * 1024,
   demoTimeoutMs: parseInt(process.env.DEMO_TIMEOUT_MS) || 30 * 60 * 1000,
   demoTemplateDir:
-    process.env.DEMO_TEMPLATE_DIR ||
-    path.join(__dirname, "demo-template"),
+    process.env.DEMO_TEMPLATE_DIR || path.join(__dirname, "demo-template"),
 
   obsidianAssetsPath:
     process.env.OBSIDIAN_ASSETS_PATH ||

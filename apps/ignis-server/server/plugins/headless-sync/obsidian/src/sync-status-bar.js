@@ -1,6 +1,8 @@
 const { setIcon } = require("obsidian");
 const api = require("./api");
 
+const CHANNEL = "plugin:headless-sync";
+
 const TOOLTIP_MAP = {
   running: "Syncing...",
   synced: "Synced",
@@ -8,8 +10,11 @@ const TOOLTIP_MAP = {
   error: "Sync error",
 };
 
-function initSyncStatusBar(plugin, wsListener) {
+function initSyncStatusBar(plugin) {
   const vaultId = plugin.app.vault.getName();
+  const ws = window.__ignis.ws;
+  const channel = ws.channel(CHANNEL);
+
   const item = plugin.addStatusBarItem();
   item.addClass("ignis-sync-statusbar");
   item.style.display = "none";
@@ -21,6 +26,7 @@ function initSyncStatusBar(plugin, wsListener) {
   let popoverOpen = false;
   let currentStatus = "stopped";
   let outsideClickHandler = null;
+  let unsubLog = null;
 
   function updateState(status, error) {
     currentStatus = status;
@@ -62,7 +68,7 @@ function initSyncStatusBar(plugin, wsListener) {
 
     popoverOpen = true;
 
-    wsListener.subscribeLogs(vaultId);
+    unsubLog = channel.subscribe("sync-log", onLog);
 
     outsideClickHandler = (e) => {
       if (!item.contains(e.target)) {
@@ -86,7 +92,11 @@ function initSyncStatusBar(plugin, wsListener) {
       outsideClickHandler = null;
     }
 
-    wsListener.unsubscribeLogs();
+    if (unsubLog) {
+      unsubLog();
+      unsubLog = null;
+    }
+
     popoverOpen = false;
   }
 
@@ -95,7 +105,7 @@ function initSyncStatusBar(plugin, wsListener) {
       return path;
     }
 
-    return "\u2026" + path.slice(-(maxLen - 1));
+    return "…" + path.slice(-(maxLen - 1));
   }
 
   function formatPopoverText(prefix, path) {
@@ -115,35 +125,30 @@ function initSyncStatusBar(plugin, wsListener) {
   }
 
   function extractFileActivity(line) {
-    // Downloading/Downloaded path
     let match = line.match(/^(?:Downloading|Downloaded)\s+(.+)$/);
 
     if (match) {
       return { prefix: "Syncing", path: match[1].trim() };
     }
 
-    // Uploading file / Upload complete path
     match = line.match(/^(?:Uploading file|Upload complete|New file)\s+(.+)$/);
 
     if (match) {
       return { prefix: "Syncing", path: match[1].trim() };
     }
 
-    // Deleting path
     match = line.match(/^Deleting\s+(.+)$/);
 
     if (match) {
       return { prefix: "Deleting", path: match[1].trim() };
     }
 
-    // Push: path (updated)
     match = line.match(/^Push:\s+(.+?)\s+\(updated\)$/);
 
     if (match) {
       return { prefix: "Syncing", path: match[1].trim() };
     }
 
-    // Push: path (deleted)
     match = line.match(/^Push:\s+(.+?)\s+\(deleted\)$/);
 
     if (match) {
@@ -157,7 +162,6 @@ function initSyncStatusBar(plugin, wsListener) {
     return /Fully synced/i.test(line);
   }
 
-  // Click toggles popover
   item.addEventListener("click", () => {
     if (popoverOpen) {
       hidePopover();
@@ -166,16 +170,15 @@ function initSyncStatusBar(plugin, wsListener) {
     }
   });
 
-  // Listen for status updates
-  const onStatus = (payload) => {
+  const onStatus = (msg) => {
+    const payload = msg.payload || {};
+
     if (payload.vaultId !== vaultId) {
       return;
     }
 
     item.style.display = "";
 
-    // "running" from server means the process is alive, but we refine
-    // the visual state based on log activity.
     if (payload.status === "running") {
       updateState("synced");
     } else {
@@ -183,10 +186,8 @@ function initSyncStatusBar(plugin, wsListener) {
     }
   };
 
-  wsListener.on("sync-status", onStatus);
+  const unsubStatus = channel.subscribe("sync-status", onStatus);
 
-  // Debounce the transition to "synced" state to avoid flickering
-  // during rapid delete cycles (Fully synced -> Deleting -> Fully synced).
   let syncedTimer = null;
 
   function deferSynced() {
@@ -208,8 +209,9 @@ function initSyncStatusBar(plugin, wsListener) {
     }
   }
 
-  // Listen for log lines
-  const onLog = (payload) => {
+  function onLog(msg) {
+    const payload = msg.payload || {};
+
     if (payload.vaultId !== vaultId) {
       return;
     }
@@ -226,11 +228,8 @@ function initSyncStatusBar(plugin, wsListener) {
       updateState("running");
       updatePopoverText(formatPopoverText(activity.prefix, activity.path));
     }
-  };
+  }
 
-  wsListener.on("sync-log", onLog);
-
-  // Fetch initial state
   api
     .getVaults()
     .then((data) => {
@@ -244,16 +243,16 @@ function initSyncStatusBar(plugin, wsListener) {
     })
     .catch(() => {});
 
-  // Poll WebSocket state to detect server disconnect/reconnect
+  // Reflect WebSocket disconnect/reconnect in the indicator.
   let wasDisconnected = false;
 
-  const wsCheckInterval = setInterval(() => {
-    const disconnected = !wsListener.isConnected();
+  const unsubState = ws.onStateChange((state) => {
+    const open = state === "open";
 
-    if (disconnected && currentStatus === "running") {
+    if (!open && currentStatus === "running") {
       updateState("error", "Server connection lost");
       wasDisconnected = true;
-    } else if (!disconnected && wasDisconnected) {
+    } else if (open && wasDisconnected) {
       wasDisconnected = false;
 
       api
@@ -268,14 +267,12 @@ function initSyncStatusBar(plugin, wsListener) {
         })
         .catch(() => {});
     }
-  }, 3000);
+  });
 
-  // Return cleanup function
   return () => {
-    clearInterval(wsCheckInterval);
     cancelDeferredSynced();
-    wsListener.off("sync-status", onStatus);
-    wsListener.off("sync-log", onLog);
+    unsubStatus();
+    unsubState();
     hidePopover();
   };
 }

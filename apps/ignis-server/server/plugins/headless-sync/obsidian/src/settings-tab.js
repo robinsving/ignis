@@ -316,11 +316,7 @@ class HeadlessSyncSettingTab extends PluginSettingTab {
   }
 
   async renderLogs(containerEl, vaultId) {
-    this._logCleanup = await renderLogViewer(
-      containerEl,
-      vaultId,
-      this.plugin.wsListener,
-    );
+    this._logCleanup = await renderLogViewer(containerEl, vaultId);
   }
 
   hide() {

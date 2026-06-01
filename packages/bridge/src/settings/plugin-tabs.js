@@ -2,10 +2,14 @@ const { setIcon } = require("obsidian");
 const { findGroupByTitle } = require("./settings-ui");
 const { isIgnisPlugin } = require("../plugin-registry");
 
+// All ignis-managed nav elements (both Ignis group and Ignis Core Plugins group).
+// Shared with inject.js so the openTab patch can manage is-active across all of them.
+const allIgnisNavEls = new Map(); // tab id -> nav element
+
 // Tracks which plugin IDs have nav items we created.
 const ownedPluginIds = new Set();
 
-function addPluginNavItem(pluginId, setting, corePluginsItems, ignisNavEls) {
+function addPluginNavItem(pluginId, setting, corePluginsItems) {
   const tab = setting.pluginTabs.find((t) => t.id === pluginId);
 
   if (!tab) {
@@ -41,16 +45,16 @@ function addPluginNavItem(pluginId, setting, corePluginsItems, ignisNavEls) {
 
   corePluginsItems.appendChild(nav);
   ownedPluginIds.add(pluginId);
-  ignisNavEls.set(pluginId, nav);
+  allIgnisNavEls.set(pluginId, nav);
 }
 
-function removePluginNavItem(pluginId, ignisNavEls) {
-  const nav = ignisNavEls.get(pluginId);
+function removePluginNavItem(pluginId) {
+  const nav = allIgnisNavEls.get(pluginId);
 
   if (nav && ownedPluginIds.has(pluginId)) {
     nav.remove();
     ownedPluginIds.delete(pluginId);
-    ignisNavEls.delete(pluginId);
+    allIgnisNavEls.delete(pluginId);
   }
 }
 
@@ -116,11 +120,11 @@ function hideIgnisNavFromCommunityGroup(setting) {
   communityGroup.style.display = hasVisible ? "" : "none";
 }
 
-function hideCorePluginsGroupIfEmpty(ignisNavEls) {
+function hideCorePluginsGroupIfEmpty() {
   let hasConnected = false;
 
   for (const id of ownedPluginIds) {
-    const nav = ignisNavEls.get(id);
+    const nav = allIgnisNavEls.get(id);
 
     if (nav?.isConnected) {
       hasConnected = true;
@@ -140,15 +144,15 @@ function hideCorePluginsGroupIfEmpty(ignisNavEls) {
   }
 }
 
-function setupPluginTabs(setting, corePluginsItems, ignisNavEls) {
+function setupPluginTabs(setting, corePluginsItems) {
   for (const tab of setting.pluginTabs) {
     if (isIgnisPlugin(tab.id) && tab.id !== "ignis-bridge") {
-      addPluginNavItem(tab.id, setting, corePluginsItems, ignisNavEls);
+      addPluginNavItem(tab.id, setting, corePluginsItems);
     }
   }
 
   hideIgnisNavFromCommunityGroup(setting);
-  hideCorePluginsGroupIfEmpty(ignisNavEls);
+  hideCorePluginsGroupIfEmpty();
 
   const communityGroup = findGroupByTitle(
     setting.tabHeadersEl,
@@ -159,12 +163,12 @@ function setupPluginTabs(setting, corePluginsItems, ignisNavEls) {
     const observer = new MutationObserver(() => {
       for (const tab of setting.pluginTabs) {
         if (isIgnisPlugin(tab.id) && tab.id !== "ignis-bridge") {
-          addPluginNavItem(tab.id, setting, corePluginsItems, ignisNavEls);
+          addPluginNavItem(tab.id, setting, corePluginsItems);
         }
       }
 
       hideIgnisNavFromCommunityGroup(setting);
-      hideCorePluginsGroupIfEmpty(ignisNavEls);
+      hideCorePluginsGroupIfEmpty();
     });
 
     observer.observe(communityGroup, { childList: true, subtree: true });
@@ -186,7 +190,7 @@ function setupPluginTabs(setting, corePluginsItems, ignisNavEls) {
   }
 }
 
-function reconcilePluginTabs(setting, ignisNavEls) {
+function reconcilePluginTabs(setting) {
   const corePluginsGroup = findGroupByTitle(
     setting.tabHeadersEl,
     "Ignis Core Plugins",
@@ -212,16 +216,16 @@ function reconcilePluginTabs(setting, ignisNavEls) {
 
   for (const id of ownedPluginIds) {
     if (!activeIds.has(id)) {
-      removePluginNavItem(id, ignisNavEls);
+      removePluginNavItem(id);
     }
   }
 
   for (const id of activeIds) {
-    addPluginNavItem(id, setting, corePluginsItems, ignisNavEls);
+    addPluginNavItem(id, setting, corePluginsItems);
   }
 
   hideIgnisNavFromCommunityGroup(setting);
-  hideCorePluginsGroupIfEmpty(ignisNavEls);
+  hideCorePluginsGroupIfEmpty();
 }
 
 function clearOwnedPluginIds() {
@@ -229,6 +233,7 @@ function clearOwnedPluginIds() {
 }
 
 module.exports = {
+  allIgnisNavEls,
   setupPluginTabs,
   reconcilePluginTabs,
   hideIgnisFromCommunityPlugins,

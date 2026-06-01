@@ -8,3 +8,9 @@
 .is-hidden-frameless:not(.is-fullscreen):not(.mod-macos) .workspace-tabs.mod-top-right-space .workspace-tab-header-container:after {
   display: none !important;
 }
+
+/* fix table cell height in firefox in edit mode with live preview */
+.markdown-source-view.mod-cm6 .cm-table-widget th,
+.markdown-source-view.mod-cm6 .cm-table-widget td {
+  height: auto !important;
+}
