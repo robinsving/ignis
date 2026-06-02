@@ -1,6 +1,8 @@
 // Override window.requestUrl to proxy external requests through our server, bypassing CORS.
 // Obsidian sets window.requestUrl in app.js, so we override it after app.js loads.
 
+import { isSameOrigin } from "./globals.js";
+
 function base64ToArrayBuffer(base64) {
   const binary = atob(base64);
   const bytes = new Uint8Array(binary.length);
@@ -29,12 +31,8 @@ async function proxyRequestUrl(request) {
     request = { url: request };
   }
 
-  const isSameOrigin =
-    request.url.startsWith(window.location.origin) ||
-    request.url.startsWith("/");
-
-  // Same-origin requests don't need the proxy
-  if (isSameOrigin) {
+  // Same-origin requests don't need the proxy.
+  if (isSameOrigin(request.url)) {
     const res = await fetch(request.url, {
       method: request.method || "GET",
       headers: request.headers || {},

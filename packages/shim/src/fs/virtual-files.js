@@ -7,7 +7,13 @@ function normalize(p) {
 const virtualFiles = new Map();
 
 export function setVirtualFile(path, content) {
-  virtualFiles.set(normalize(path), content);
+  const normalized = normalize(path);
+
+  if (normalized.split("/").includes("..")) {
+    throw new Error(`virtual file path may not contain '..': ${path}`);
+  }
+
+  virtualFiles.set(normalized, content);
 }
 
 export function removeVirtualFile(path) {

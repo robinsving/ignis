@@ -138,7 +138,7 @@ function base64ToArrayBuffer(base64) {
   return bytes.buffer;
 }
 
-function isSameOrigin(url) {
+export function isSameOrigin(url) {
   if (
     !url ||
     url.startsWith("/") ||

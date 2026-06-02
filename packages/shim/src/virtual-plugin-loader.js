@@ -104,6 +104,12 @@ export async function extractObsidianModule() {
   return captured;
 }
 
+function assertSameOrigin(url) {
+  if (new URL(url, location.origin).origin !== location.origin) {
+    throw new Error(`refusing cross-origin plugin URL: ${url}`);
+  }
+}
+
 // Serialize per-id load/unload so rapid toggles can't race.
 const inFlight = new Map();
 
@@ -128,7 +134,11 @@ export function loadVirtualPlugin(entry) {
       return;
     }
 
+    assertSameOrigin(entry.scriptUrl);
+
     if (entry.cssUrl) {
+      assertSameOrigin(entry.cssUrl);
+
       const link = document.createElement("link");
       link.rel = "stylesheet";
       link.href = entry.cssUrl;
