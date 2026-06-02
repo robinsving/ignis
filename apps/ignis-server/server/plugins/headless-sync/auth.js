@@ -83,15 +83,23 @@ function isAuthenticated(dataDir) {
   return false;
 }
 
+function writeSecret(file, contents) {
+  fs.writeFileSync(file, contents, { encoding: "utf-8", mode: 0o600 });
+
+  try {
+    fs.chmodSync(file, 0o600);
+  } catch {}
+}
+
 function saveInternal(dataDir, tokenData) {
   const internalFile = getInternalTokenFile(dataDir);
   const dir = path.dirname(internalFile);
 
   if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
+    fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
   }
 
-  fs.writeFileSync(internalFile, JSON.stringify(tokenData, null, 2), "utf-8");
+  writeSecret(internalFile, JSON.stringify(tokenData, null, 2));
 }
 
 function syncToObCli(dataDir, token) {
@@ -101,10 +109,10 @@ function syncToObCli(dataDir, token) {
     const dir = path.dirname(obAuthFile);
 
     if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
+      fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
     }
 
-    fs.writeFileSync(obAuthFile, token, "utf-8");
+    writeSecret(obAuthFile, token);
   } catch {}
 }
 

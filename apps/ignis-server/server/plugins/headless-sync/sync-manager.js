@@ -4,6 +4,7 @@ const { spawn } = require("child_process");
 const { spawnOb, runCommand } = require("./ob-cli");
 
 const MAX_LOG_ENTRIES = 200;
+const MAX_LOG_LINE = 4096;
 
 function killProcess(proc) {
   if (!proc) {
@@ -151,10 +152,13 @@ class SyncManager {
       const lines = data.toString().split("\n");
 
       for (const line of lines) {
-        if (line.trim()) {
-          this.addLog(state, line.trim());
+        const trimmed = line.trim();
+
+        if (trimmed) {
+          const capped = trimmed.slice(0, MAX_LOG_LINE);
+          this.addLog(state, capped);
           state.lastActivity = new Date().toISOString();
-          this.broadcaster.broadcastLog(vaultId, line.trim());
+          this.broadcaster.broadcastLog(vaultId, capped);
         }
       }
     });
@@ -302,7 +306,7 @@ class SyncManager {
   addLog(state, line) {
     state.logs.push({
       timestamp: new Date().toISOString(),
-      line,
+      line: line.slice(0, MAX_LOG_LINE),
     });
 
     if (state.logs.length > MAX_LOG_ENTRIES) {
