@@ -1,6 +1,6 @@
 import { showVaultManager } from "../ui-registry.js";
 import { vaultService } from "@ignis/services";
-import { arrayBufferToBase64, base64ToArrayBuffer } from "../util/base64.js";
+import { proxyFetch } from "../util/proxy.js";
 
 const listeners = new Map();
 
@@ -88,41 +88,19 @@ const syncHandlers = {
 
 async function handleRequestUrl(requestId, request) {
   try {
-    let body = request.body;
-    let binary = false;
-
-    if (body instanceof ArrayBuffer) {
-      body = arrayBufferToBase64(body);
-      binary = true;
-    }
-
-    const res = await fetch("/api/proxy", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        url: request.url,
-        method: request.method || "GET",
-        headers: request.headers || {},
-        contentType: request.contentType,
-        body,
-        binary,
-      }),
+    const result = await proxyFetch({
+      url: request.url,
+      method: request.method,
+      headers: request.headers,
+      body: request.body,
+      contentType: request.contentType,
     });
-
-    const proxyResult = await res.json();
-
-    if (!res.ok) {
-      ipcRenderer._emit(requestId, {
-        error: proxyResult.error || "Proxy request failed",
-      });
-      return;
-    }
 
     // Electron's e.reply(requestId, data) sends on the requestId channel
     ipcRenderer._emit(requestId, {
-      status: proxyResult.status,
-      headers: proxyResult.headers,
-      body: base64ToArrayBuffer(proxyResult.body),
+      status: result.status,
+      headers: result.headers,
+      body: result.body,
     });
   } catch (e) {
     ipcRenderer._emit(requestId, {

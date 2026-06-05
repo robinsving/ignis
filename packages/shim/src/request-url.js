@@ -2,7 +2,7 @@
 // Obsidian sets window.requestUrl in app.js, so we override it after app.js loads.
 
 import { isSameOrigin } from "./util/url.js";
-import { arrayBufferToBase64, base64ToArrayBuffer } from "./util/base64.js";
+import { proxyFetch } from "./util/proxy.js";
 
 async function proxyRequestUrl(request) {
   if (typeof request === "string") {
@@ -28,42 +28,14 @@ async function proxyRequestUrl(request) {
   }
 
   // Cross-origin: route through server proxy
-  let body = request.body;
-  let binary = false;
-
-  if (body instanceof ArrayBuffer) {
-    body = arrayBufferToBase64(body);
-    binary = true;
-  }
-
-  const res = await fetch("/api/proxy", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      url: request.url,
-      method: request.method || "GET",
-      headers: request.headers || {},
-      body,
-      binary,
-    }),
+  const result = await proxyFetch({
+    url: request.url,
+    method: request.method,
+    headers: request.headers,
+    body: request.body,
   });
 
-  if (!res.ok) {
-    const err = await res
-      .json()
-      .catch(() => ({ error: "Proxy request failed" }));
-    throw new Error(err.error);
-  }
-
-  const proxyResult = await res.json();
-  const arrayBuf = base64ToArrayBuffer(proxyResult.body);
-
-  return makeResponse(
-    request,
-    proxyResult.status,
-    proxyResult.headers,
-    arrayBuf,
-  );
+  return makeResponse(request, result.status, result.headers, result.body);
 }
 
 function makeResponse(request, status, headers, arrayBuf) {

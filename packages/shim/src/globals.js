@@ -4,8 +4,8 @@ import {
   unregisterPopupWindow,
 } from "./electron/remote/window.js";
 import { showVaultManager } from "./ui-registry.js";
-import { arrayBufferToBase64, base64ToArrayBuffer } from "./util/base64.js";
 import { isSameOrigin } from "./util/url.js";
+import { proxyFetch } from "./util/proxy.js";
 
 function installProcess() {
   window.process = processShim;
@@ -167,17 +167,15 @@ function installFetchShim() {
     }
 
     let body = null;
-    let binary = false;
 
     if (init?.body && method !== "GET" && method !== "HEAD") {
       if (typeof init.body === "string") {
         body = init.body;
-      } else if (init.body instanceof ArrayBuffer) {
-        body = arrayBufferToBase64(init.body);
-        binary = true;
-      } else if (init.body instanceof Uint8Array) {
-        body = arrayBufferToBase64(init.body.buffer);
-        binary = true;
+      } else if (
+        init.body instanceof ArrayBuffer ||
+        init.body instanceof Uint8Array
+      ) {
+        body = init.body;
       } else if (typeof init.body === "object") {
         body = JSON.stringify(init.body);
       } else {
@@ -187,23 +185,15 @@ function installFetchShim() {
 
     console.log("[shim:fetch] Proxying cross-origin:", method, url);
 
-    const proxyRes = await originalFetch("/api/proxy", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ url, method, headers, body, binary }),
-    });
+    let result;
 
-    if (!proxyRes.ok) {
-      const err = await proxyRes
-        .json()
-        .catch(() => ({ error: "Proxy request failed" }));
-      throw new TypeError(err.error || "Failed to fetch");
+    try {
+      result = await proxyFetch({ url, method, headers, body });
+    } catch (e) {
+      throw new TypeError(e.message || "Failed to fetch");
     }
 
-    const result = await proxyRes.json();
-    const respBody = base64ToArrayBuffer(result.body);
-
-    return new Response(respBody, {
+    return new Response(result.body, {
       status: result.status,
       headers: result.headers,
     });
