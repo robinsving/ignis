@@ -1,6 +1,6 @@
 # Replace with your domain, or use :443 for local access with a self-signed cert.
 ignis.example.com {
-	basicauth {
+	basic_auth {
 		# Username: admin
 		# Replace the hash below with your own. Generate one with:
 		#   docker run --rm caddy:2 caddy hash-password --plaintext YOUR_PASSWORD
