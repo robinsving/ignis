@@ -23,8 +23,9 @@ else
   echo "[ignis] Using existing user $RUN_USER (UID $PUID)"
 fi
 
-# Fix ownership of volumes
-chown -R "$PUID:$PGID" /vaults /app/obsidian-app
+
+mkdir -p /app/data
+chown -R "$PUID:$PGID" /vaults /app/obsidian-app /app/data
 
 OBSIDIAN_DIR="/app/obsidian-app"
 OBSIDIAN_VERSION="${OBSIDIAN_VERSION:-1.12.7}"

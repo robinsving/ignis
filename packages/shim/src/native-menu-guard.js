@@ -49,7 +49,8 @@ function readTransform(data) {
   try {
     const obj = JSON.parse(text);
 
-    if (obj.nativeMenus) {
+    // force native menus to false since its never appropriate in a browser context.
+    if (obj.nativeMenus !== false) {
       obj.nativeMenus = false;
       return JSON.stringify(obj);
     }
@@ -99,6 +100,9 @@ function patchSetConfig() {
       return orig(key, value);
     };
     vault.__ignisNativeMenuGuarded = true;
+
+    // set to false to override any platform default (like macOS).
+    vault.setConfig("nativeMenus", false);
 
     return true;
   };
