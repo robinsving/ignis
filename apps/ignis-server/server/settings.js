@@ -12,12 +12,19 @@ const DEFAULTS = {
   inputCacheTtlMs: 5 * 60 * 1000,
   writeCoalesceMs: 5000,
   maxBodyBytes: 50 * 1024 * 1024,
-  // Empty arrays mean "no restriction": any proxy host, any WS origin.
+  // "any" reaches any public host, "allowlist" restricts to proxyAllowlist, "disabled" blocks all proxying.
+  proxyMode: "any",
+  // Empty allows any public host.
   proxyAllowlist: [],
   wsOrigins: [],
 };
 
+const PROXY_MODES = ["any", "allowlist", "disabled"];
+
 const KEYS = Object.keys(DEFAULTS);
+
+// Env vars only; never persisted to the settings file.
+const ENV_ONLY_KEYS = ["wsOrigins"];
 
 // Hard ceiling for request bodies.
 const MAX_BODY_BACKSTOP = 500 * 1024 * 1024;
@@ -56,6 +63,10 @@ function loadFile() {
     const clean = {};
 
     for (const key of KEYS) {
+      if (ENV_ONLY_KEYS.includes(key)) {
+        continue;
+      }
+
       if (parsed[key] !== undefined) {
         clean[key] = parsed[key];
       }
@@ -80,7 +91,7 @@ function get(key) {
 // Merge validated changes into the persisted file and return the new effective settings.
 function update(partial) {
   for (const [key, value] of Object.entries(partial)) {
-    if (KEYS.includes(key)) {
+    if (KEYS.includes(key) && !ENV_ONLY_KEYS.includes(key)) {
       fileOverrides[key] = value;
     }
   }
@@ -91,4 +102,13 @@ function update(partial) {
   return getAll();
 }
 
-module.exports = { DEFAULTS, KEYS, MAX_BODY_BACKSTOP, getAll, get, update };
+module.exports = {
+  DEFAULTS,
+  KEYS,
+  ENV_ONLY_KEYS,
+  PROXY_MODES,
+  MAX_BODY_BACKSTOP,
+  getAll,
+  get,
+  update,
+};

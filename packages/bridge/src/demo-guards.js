@@ -51,4 +51,4 @@ function stopDemoGuards() {
   }
 }
 
-module.exports = { startDemoGuards, stopDemoGuards };
+module.exports = { startDemoGuards, stopDemoGuards, isDemoMode };

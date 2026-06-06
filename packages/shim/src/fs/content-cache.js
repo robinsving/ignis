@@ -10,6 +10,14 @@ export class ContentCache {
     this._maxSize = maxSize;
   }
 
+  setMaxSize(maxSize) {
+    this._maxSize = maxSize;
+
+    while (this._currentSize > this._maxSize && this._cache.size > 0) {
+      this._evictOne();
+    }
+  }
+
   has(path) {
     return this._cache.has(this._normalize(path));
   }

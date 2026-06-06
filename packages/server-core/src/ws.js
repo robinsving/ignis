@@ -14,13 +14,9 @@ function setupWebSocket(server, opts = {}) {
     throw new Error("setupWebSocket: opts.getVaultPath is required");
   }
 
-  let originSet = toOriginSet(originAllowlist);
+  const originSet = toOriginSet(originAllowlist);
 
   const wss = new WebSocketServer({ server, path: "/ws" });
-
-  wss.setOriginAllowlist = function (list) {
-    originSet = toOriginSet(list);
-  };
 
   // Global message handlers: type -> handler(msg, ws).
   wss.messageHandlers = new Map();

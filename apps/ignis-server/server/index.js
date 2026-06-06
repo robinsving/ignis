@@ -213,7 +213,6 @@ const wss = setupWebSocket(server, {
   getVaultPath: config.getVaultPath,
   originAllowlist: settings.get("wsOrigins"),
 });
-app.set("wss", wss);
 wireDemoWebSocket(server);
 
 async function gracefulShutdown(signal) {

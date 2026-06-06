@@ -8,10 +8,25 @@ import {
   initWorkspacePatch,
 } from "./workspace.js";
 import { prefetchVaultContent } from "./fs/indexer-prefetch.js";
+import { setInputCacheLimits } from "./fs/input-cache.js";
 import { autoTrustDemoVaults, maybeProvisionDemoVault } from "./demo.js";
 import { initNativeMenuGuard } from "./native-menu-guard.js";
 
 let bootstrapVirtualPlugins = [];
+
+// Cache sizes come from the bootstrap response and are applied at page load.
+// The server owns the rest of the settings and applies them on its side.
+function applyServerSettings(s) {
+  if (!s) {
+    return;
+  }
+
+  if (Number.isFinite(s.contentCacheBytes)) {
+    fsShim._contentCache.setMaxSize(s.contentCacheBytes);
+  }
+
+  setInputCacheLimits({ maxSize: s.inputCacheBytes, ttlMs: s.inputCacheTtlMs });
+}
 
 export function getBootstrapVirtualPlugins() {
   return bootstrapVirtualPlugins;
@@ -212,6 +227,7 @@ export function initialize() {
     applyTree(bootstrap.tree);
     applyCoreSyncGuard(bootstrap.plugins);
     bootstrapVirtualPlugins = bootstrap.virtualPlugins || [];
+    applyServerSettings(bootstrap.settings);
 
     // Race the indexer: batch-fetch text content into ContentCache so
     // Obsidian's startup indexing reads hit the cache instead of the network.

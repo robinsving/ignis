@@ -100,16 +100,20 @@ router.post("/", async (req, res) => {
     return res.status(400).json({ error: "Missing url" });
   }
 
+  const proxyMode = settings.get("proxyMode");
+
+  if (proxyMode === "disabled") {
+    return res.status(403).json({ error: "Proxy is disabled" });
+  }
+
   try {
     await assertPublicUrl(url);
   } catch (e) {
     return res.status(e.statusCode || 400).json({ error: e.message });
   }
 
-  // When a host allowlist is defined , the proxy only reaches those hosts.
-  const allowlist = settings.get("proxyAllowlist");
-
-  if (allowlist.length > 0) {
+  if (proxyMode === "allowlist") {
+    const allowlist = settings.get("proxyAllowlist");
     const host = new URL(url).hostname;
 
     if (!allowlist.includes(host)) {

@@ -12,10 +12,20 @@ const NUMBER_KEYS = [
   "writeCoalesceMs",
   "maxBodyBytes",
 ];
-const LIST_KEYS = ["proxyAllowlist", "wsOrigins"];
+const LIST_KEYS = ["proxyAllowlist"];
 
 function validate(body) {
   const clean = {};
+
+  if (body.proxyMode !== undefined) {
+    if (!settings.PROXY_MODES.includes(body.proxyMode)) {
+      throw new Error(
+        `proxyMode must be one of: ${settings.PROXY_MODES.join(", ")}`,
+      );
+    }
+
+    clean.proxyMode = body.proxyMode;
+  }
 
   for (const key of NUMBER_KEYS) {
     if (body[key] === undefined) {
@@ -57,14 +67,8 @@ function validate(body) {
   return clean;
 }
 
-function applySettings(effective, req) {
+function applySettings(effective) {
   writeCoalescer.configure({ writeCoalesceMs: effective.writeCoalesceMs });
-
-  const wss = req.app.get("wss");
-
-  if (wss && typeof wss.setOriginAllowlist === "function") {
-    wss.setOriginAllowlist(effective.wsOrigins);
-  }
 }
 
 router.get("/", (req, res) => {
@@ -81,7 +85,7 @@ router.post("/", (req, res) => {
   }
 
   const effective = settings.update(clean);
-  applySettings(effective, req);
+  applySettings(effective);
 
   // Cache sizes ride in the bootstrap response; clear it so the next page load picks up new values.
   bootstrapRoutes.invalidateAll();

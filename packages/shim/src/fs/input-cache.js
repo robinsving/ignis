@@ -7,8 +7,8 @@
 
 import { normalize } from "../util/path.js";
 
-const MAX_SIZE = 200 * 1024 * 1024;
-const TTL_MS = 5 * 60 * 1000;
+let MAX_SIZE = 200 * 1024 * 1024;
+let TTL_MS = 5 * 60 * 1000;
 
 const cache = new Map(); // path -> { data, size, createdAt }
 let currentSize = 0;
@@ -110,6 +110,20 @@ export function inputCacheDelete(path) {
 export function inputCacheClear() {
   cache.clear();
   currentSize = 0;
+}
+
+export function setInputCacheLimits({ maxSize, ttlMs }) {
+  if (Number.isFinite(maxSize)) {
+    MAX_SIZE = maxSize;
+
+    while (currentSize > MAX_SIZE && cache.size > 0) {
+      evictOldest();
+    }
+  }
+
+  if (Number.isFinite(ttlMs)) {
+    TTL_MS = ttlMs;
+  }
 }
 
 export function isInputCachePath(path) {
