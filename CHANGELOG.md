@@ -2,6 +2,31 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.8.6] - Karm (2026-06-12)
+
+### Added
+
+- `OBSIDIAN_PACKAGE` env var: unpack a pre-placed `.deb`, `.asar.gz`, or `.asar` on first run instead of downloading, for offline or restricted networks.
+- `PROXY_ALLOW_PRIVATE_HOSTS` env var: IPs or IPv4 CIDRs the cross-origin proxy may reach despite the private-address block.
+
+### Changed
+
+- `fs.promises.realpath` is answered from the client-side cache; vault load no longer issues one realpath request per folder.
+
+### Fixed
+
+- Sync file reads serve virtual plugin files the same as async reads.
+
+### Security
+
+- Cross-origin proxy rewritten for better security
+- Filesystem and vault error responses no longer include absolute server paths.
+- Protocol-relative (`//host`) requests route through the proxy guard.
+- Vault names are validated on creation; `batch-read` caps the number of paths per request.
+- Demo mode: `/api/ext/*` blocked, and several security fixes
+- The `ob` CLI is spawned without a shell.
+- Dependency bumps clearing npm audit.
+
 ## [0.8.5] - Karm (2026-06-07)
 
 ### Added

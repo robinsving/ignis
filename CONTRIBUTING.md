@@ -46,18 +46,22 @@ This kind of report makes it straightforward to add the missing shim.
 If you want to contribute code:
 
 1. Fork the repo and create a branch for your change
-2. Run `npm run build` to verify everything builds
-3. start the server with `npm run dev`.
+2. Run `npm install` once at the repo root (npm workspaces)
+3. Run `npm run dev` to build and start the server
 4. Test your change in the browser with at least one vault open
-5. Keep PRs focused - one fix or feature per PR
+5. Run `npm test` and make sure the whole suite passes
+6. Keep PRs focused - one fix or feature per PR
+
+Changes to deliberate behavior (the fs shim's caching and write model, the proxy's request handling, anything documented as a design decision) start as an issue, not a PR. Open the issue first so the approach can be discussed; a patch against an undiscussed design change will be closed on this basis.
 
 ### Project structure
 
-- `src/shims/` - Browser shims for Node.js and Electron APIs
-- `src/ui/` - Svelte UI components (vault manager, dialogs)
-- `plugin/` - The ignis-bridge Obsidian plugin (settings, file actions)
-- `server/` - Express server (fs routes, WebSocket, plugin system)
-- `server/plugins/` - Server plugin packages (e.g., headless-sync)
+- `packages/shim/` - Browser shims for Node.js and Electron APIs
+- `packages/ui/` - Svelte UI components (vault manager, dialogs)
+- `packages/bridge/` - The ignis-bridge Obsidian plugin (settings, file actions)
+- `packages/server-core/` - Shared server helpers (path guards, watcher, WebSocket)
+- `apps/ignis-server/` - Express server, Docker image, demo mode
+- `apps/ignis-server/server/plugins/` - Server plugin packages (e.g., headless-sync)
 
 See [ARCHITECTURE.md](docs/ARCHITECTURE.md) for more detail.
 
@@ -65,7 +69,7 @@ See [ARCHITECTURE.md](docs/ARCHITECTURE.md) for more detail.
 
 If a plugin needs a Node.js module that isn't shimmed:
 
-1. Create the shim in `src/shims/node/<module>.js`
+1. Create the shim in `packages/shim/src/node/<module>.js`
 2. Export the functions the plugin needs (stub what you can't implement)
-3. Register it in `src/shims/require.js` (import + add to `rawRegistry`)
+3. Register it in `packages/shim/src/require.js` (import + add to `rawRegistry`)
 4. Build and test with the plugin that needed it
