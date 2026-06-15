@@ -93,6 +93,11 @@ export class MetadataCache {
     return this._entries.size;
   }
 
+  // Normalized keys of every entry, for callers that diff the cache against a fresh tree.
+  keys() {
+    return [...this._entries.keys()];
+  }
+
   toStat(path) {
     const meta = this.get(path);
 
