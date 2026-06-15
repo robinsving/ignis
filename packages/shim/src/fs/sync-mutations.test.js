@@ -1,6 +1,7 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import { createFsSync } from "./sync.js";
-import { resolvePath } from "./transforms.js";
+import { resolvePath, registerPathResolver, _reset } from "./transforms.js";
+import { isRecentLocalOp } from "./echo-guard.js";
 
 function makeDeps() {
   const store = new Map();
@@ -43,6 +44,9 @@ function makeDeps() {
     appendFile: vi.fn(async () => {}),
     utimes: vi.fn(async () => {}),
     stat: vi.fn(async () => ({ type: "file", size: 1 })),
+    readFileSync: vi.fn(() => {
+      throw new Error("transport.readFileSync should not be called");
+    }),
   };
 
   return { metadataCache, contentCache, transport, store };
@@ -51,7 +55,11 @@ function makeDeps() {
 describe("sync fs mutations", () => {
   it("lstatSync mirrors statSync", () => {
     const deps = makeDeps();
-    const fs = createFsSync(deps.metadataCache, deps.contentCache, deps.transport);
+    const fs = createFsSync(
+      deps.metadataCache,
+      deps.contentCache,
+      deps.transport,
+    );
     deps.store.set(resolvePath("dir"), { type: "directory" });
 
     expect(fs.lstatSync("dir").isDirectory()).toBe(true);
@@ -59,7 +67,11 @@ describe("sync fs mutations", () => {
 
   it("mkdirSync updates the cache and fires the transport", () => {
     const deps = makeDeps();
-    const fs = createFsSync(deps.metadataCache, deps.contentCache, deps.transport);
+    const fs = createFsSync(
+      deps.metadataCache,
+      deps.contentCache,
+      deps.transport,
+    );
 
     fs.mkdirSync("newdir", { recursive: true });
 
@@ -69,7 +81,11 @@ describe("sync fs mutations", () => {
 
   it("rmSync deletes from the cache and fires the transport", () => {
     const deps = makeDeps();
-    const fs = createFsSync(deps.metadataCache, deps.contentCache, deps.transport);
+    const fs = createFsSync(
+      deps.metadataCache,
+      deps.contentCache,
+      deps.transport,
+    );
     const key = resolvePath("gone.md");
     deps.store.set(key, { type: "file" });
 
@@ -81,7 +97,11 @@ describe("sync fs mutations", () => {
 
   it("renameSync moves cache metadata and fires the transport", () => {
     const deps = makeDeps();
-    const fs = createFsSync(deps.metadataCache, deps.contentCache, deps.transport);
+    const fs = createFsSync(
+      deps.metadataCache,
+      deps.contentCache,
+      deps.transport,
+    );
     const from = resolvePath("a.md");
     const to = resolvePath("b.md");
     deps.store.set(from, { type: "file", size: 2 });
@@ -95,7 +115,11 @@ describe("sync fs mutations", () => {
 
   it("copyFileSync optimistically mirrors source metadata and fires the transport", () => {
     const deps = makeDeps();
-    const fs = createFsSync(deps.metadataCache, deps.contentCache, deps.transport);
+    const fs = createFsSync(
+      deps.metadataCache,
+      deps.contentCache,
+      deps.transport,
+    );
     const srcKey = resolvePath("src.md");
     const destKey = resolvePath("dest.md");
     deps.store.set(srcKey, { type: "file", size: 9 });
@@ -108,7 +132,11 @@ describe("sync fs mutations", () => {
 
   it("utimesSync sets mtime and fires the transport", () => {
     const deps = makeDeps();
-    const fs = createFsSync(deps.metadataCache, deps.contentCache, deps.transport);
+    const fs = createFsSync(
+      deps.metadataCache,
+      deps.contentCache,
+      deps.transport,
+    );
     const key = resolvePath("note.md");
     deps.store.set(key, { type: "file", mtime: 0 });
 
@@ -117,12 +145,101 @@ describe("sync fs mutations", () => {
     expect(deps.store.get(key).mtime).toBe(222);
     expect(deps.transport.utimes).toHaveBeenCalled();
   });
+});
 
-  it("chmodSync is a no-op that does not throw", () => {
+describe("directory mutations honor path resolvers", () => {
+  afterEach(() => _reset());
+
+  it("mkdirSync uses the resolved path for cache, echo-guard, and transport", () => {
+    registerPathResolver(
+      (p) => p === "logical/dir",
+      () => "physical/dir",
+    );
+
     const deps = makeDeps();
-    const fs = createFsSync(deps.metadataCache, deps.contentCache, deps.transport);
+    const fs = createFsSync(
+      deps.metadataCache,
+      deps.contentCache,
+      deps.transport,
+    );
 
-    expect(() => fs.chmodSync("note.md", 0o644)).not.toThrow();
-    expect(fs.chmodSync("note.md", 0o644)).toBeUndefined();
+    fs.mkdirSync("logical/dir", { recursive: true });
+
+    expect(deps.store.get("physical/dir")).toEqual({ type: "directory" });
+    expect(deps.store.has("logical/dir")).toBe(false);
+    expect(deps.transport.mkdir).toHaveBeenCalledWith("physical/dir", true);
+    expect(isRecentLocalOp("physical/dir")).toBe(true);
+    expect(isRecentLocalOp("logical/dir")).toBe(false);
+  });
+
+  it("rmdirSync uses the resolved path for cache, echo-guard, and transport", () => {
+    registerPathResolver(
+      (p) => p === "logical/dir",
+      () => "physical/dir",
+    );
+
+    const deps = makeDeps();
+    const fs = createFsSync(
+      deps.metadataCache,
+      deps.contentCache,
+      deps.transport,
+    );
+    deps.store.set("physical/dir", { type: "directory" });
+
+    fs.rmdirSync("logical/dir");
+
+    expect(deps.store.has("physical/dir")).toBe(false);
+    expect(deps.transport.rmdir).toHaveBeenCalledWith("physical/dir");
+    expect(isRecentLocalOp("physical/dir")).toBe(true);
+  });
+});
+
+describe("readFileSync existence", () => {
+  afterEach(() => _reset());
+
+  it("answers ENOENT from the cache for a missing non-redirected path, no transport", () => {
+    const deps = makeDeps();
+    const fs = createFsSync(
+      deps.metadataCache,
+      deps.contentCache,
+      deps.transport,
+    );
+
+    // Leading slash: normalize strips it, so resolved !== the raw argument.
+    expect(() => fs.readFileSync("/.obsidian/backlink.json", "utf8")).toThrow(
+      /ENOENT/,
+    );
+    expect(deps.transport.readFileSync).not.toHaveBeenCalled();
+  });
+
+  it("falls back to the original path for a redirected miss", () => {
+    registerPathResolver(
+      (p) => p === ".obsidian/workspace.json",
+      () => ".obsidian/workspace.Work.json",
+    );
+
+    const deps = makeDeps();
+    deps.transport.readFileSync = vi.fn((p) => {
+      if (p === ".obsidian/workspace.Work.json") {
+        const e = new Error("ENOENT");
+        e.code = "ENOENT";
+        throw e;
+      }
+
+      return "BASE";
+    });
+
+    const fs = createFsSync(
+      deps.metadataCache,
+      deps.contentCache,
+      deps.transport,
+    );
+
+    // Returns the base content after the redirect target 404s: the fallback fired.
+    expect(fs.readFileSync("/.obsidian/workspace.json", "utf8")).toBe("BASE");
+    expect(deps.transport.readFileSync).toHaveBeenCalledWith(
+      ".obsidian/workspace.Work.json",
+      "utf8",
+    );
   });
 });

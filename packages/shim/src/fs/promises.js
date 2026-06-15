@@ -4,6 +4,7 @@ import {
   applyReadTransform,
   applyWriteTransform,
   resolvePath,
+  resolvePathInfo,
 } from "./transforms.js";
 import { hasVirtualFile, getVirtualFile } from "./virtual-files.js";
 import { realpathSync } from "./realpath.js";
@@ -53,7 +54,7 @@ export function createFsPromises(metadataCache, contentCache, transport) {
       }
 
       const wantText = encoding === "utf8" || encoding === "utf-8";
-      const resolved = resolvePath(path);
+      const { resolved, redirected } = resolvePathInfo(path);
 
       // Virtual plugin source overrides any cache/transport version.
       if (hasVirtualFile(resolved)) {
@@ -86,8 +87,9 @@ export function createFsPromises(metadataCache, contentCache, transport) {
           throw e;
         }
 
-        if (!meta && resolved && resolved === path) {
-          // Throw ENOENT only when not redirected; redirected paths fall through to the transport's fallback.
+        if (!meta && !redirected) {
+          // The metadata cache holds every existing path (populated at bootstrap, kept current by the watcher).
+          // A cache miss on a non-redirected path is genuinely absent. Redirected paths fall through to the transport.
           const e = new Error(
             `ENOENT: no such file or directory, open '${path}'`,
           );
@@ -102,7 +104,7 @@ export function createFsPromises(metadataCache, contentCache, transport) {
         try {
           result = await transport.readFile(resolved, encoding);
         } catch (e) {
-          if (resolved !== path && e.code === "ENOENT") {
+          if (redirected && e.code === "ENOENT") {
             result = await transport.readFile(path, encoding);
           } else {
             throw e;
@@ -207,16 +209,20 @@ export function createFsPromises(metadataCache, contentCache, transport) {
       const recursive =
         typeof options === "object" ? !!options.recursive : !!options;
 
-      markLocalOp(path);
-      metadataCache.set(path, { type: "directory" });
+      const resolved = resolvePath(path);
 
-      await transport.mkdir(path, recursive);
+      markLocalOp(resolved);
+      metadataCache.set(resolved, { type: "directory" });
+
+      await transport.mkdir(resolved, recursive);
     },
 
     async rmdir(path) {
-      markLocalOp(path);
-      metadataCache.delete(path);
-      await transport.rmdir(path);
+      const resolved = resolvePath(path);
+
+      markLocalOp(resolved);
+      metadataCache.delete(resolved);
+      await transport.rmdir(resolved);
     },
 
     async rm(path, options) {
