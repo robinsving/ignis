@@ -7,6 +7,22 @@ function toOriginSet(list) {
   return Array.isArray(list) && list.length > 0 ? new Set(list) : null;
 }
 
+const HEARTBEAT_INTERVAL_MS = 30000;
+
+// Terminates sockets that have not ponged since the previous sweep, and pings the rest.
+// A socket silently dropped by an idle-timeout proxy fails the next isAlive check and is terminated.
+function heartbeatSweep(clients) {
+  for (const ws of clients) {
+    if (ws.isAlive === false) {
+      ws.terminate();
+      continue;
+    }
+
+    ws.isAlive = false;
+    ws.ping();
+  }
+}
+
 function setupWebSocket(server, opts = {}) {
   const { getVaultPath, originAllowlist } = opts;
 
@@ -126,6 +142,12 @@ function setupWebSocket(server, opts = {}) {
     const vaultPath = getVaultPath(vaultId);
     console.log(`[ws] Client connected to vault: ${vaultId}`);
 
+    // isAlive is reset by each pong; the heartbeat sweep terminates sockets that miss one.
+    ws.isAlive = true;
+    ws.on("pong", () => {
+      ws.isAlive = true;
+    });
+
     if (!clientsByVault.has(vaultId)) {
       clientsByVault.set(vaultId, new Set());
     }
@@ -209,7 +231,16 @@ function setupWebSocket(server, opts = {}) {
     });
   });
 
+  // Terminate dead connections behind proxies that silently drop idle sockets.
+  const heartbeat = setInterval(
+    () => heartbeatSweep(wss.clients),
+    HEARTBEAT_INTERVAL_MS,
+  );
+  heartbeat.unref?.();
+
+  wss.on("close", () => clearInterval(heartbeat));
+
   return wss;
 }
 
-module.exports = { setupWebSocket };
+module.exports = { setupWebSocket, heartbeatSweep };
