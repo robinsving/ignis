@@ -6,34 +6,16 @@ import {
   registerReadTransform,
   registerWriteTransform,
 } from "./fs/transforms.js";
+import { fsShim } from "./fs/index.js";
 
 const APPEARANCE_PATH = ".obsidian/appearance.json";
 
 // undefined = key absent on disk; write transform keeps it absent.
 let preservedNativeMenus = undefined;
 
-function snapshotAppearance(vaultId) {
-  if (!vaultId) {
-    return;
-  }
-
+function snapshotAppearance() {
   try {
-    const xhr = new XMLHttpRequest();
-    const url =
-      "/api/fs/readFile?vault=" +
-      encodeURIComponent(vaultId) +
-      "&path=" +
-      encodeURIComponent(APPEARANCE_PATH) +
-      "&encoding=utf-8";
-
-    xhr.open("GET", url, false);
-    xhr.send();
-
-    if (xhr.status !== 200) {
-      return;
-    }
-
-    const obj = JSON.parse(xhr.responseText);
+    const obj = JSON.parse(fsShim.readFileSync(APPEARANCE_PATH, "utf-8"));
 
     if ("nativeMenus" in obj) {
       preservedNativeMenus = obj.nativeMenus;
@@ -158,9 +140,9 @@ function disableNativeMenuToggle() {
   });
 }
 
-export function initNativeMenuGuard(vaultId) {
-  // Snapshot before registering transforms so the write transform has the original disk value to substitute back.
-  snapshotAppearance(vaultId);
+export function initNativeMenuGuard() {
+  // Snapshot before registering the read transform so the captured value is the original on disk, not the forced value.
+  snapshotAppearance();
   registerReadTransform(APPEARANCE_PATH, readTransform);
   registerWriteTransform(APPEARANCE_PATH, writeTransform);
   patchSetConfig();

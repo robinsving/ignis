@@ -171,8 +171,7 @@ function applyCoreSyncGuard(plugins) {
       return data;
     }
 
-    let text =
-      typeof data === "string" ? data : new TextDecoder().decode(data);
+    let text = typeof data === "string" ? data : new TextDecoder().decode(data);
 
     try {
       const config = JSON.parse(text);
@@ -226,6 +225,13 @@ function updateBootProgress(received, total) {
   label.textContent = `Loading plugins... ${mb(received)}/${mb(total)} MB`;
 }
 
+// Resolve the active workspace and snapshot the appearance config.
+function resolveWorkspaceAndAppearance() {
+  resolveWorkspaceName();
+  loadPresetIfRequested();
+  initNativeMenuGuard();
+}
+
 export function initialize() {
   if (maybeProvisionDemoVault()) {
     window.__ignisBootReady = Promise.resolve();
@@ -233,9 +239,6 @@ export function initialize() {
   }
 
   resolveVaultId();
-  resolveWorkspaceName();
-  loadPresetIfRequested();
-  initNativeMenuGuard(window.__currentVaultId);
 
   const bootstrap = fetchBootstrap();
 
@@ -258,13 +261,16 @@ export function initialize() {
       { onProgress: updateBootProgress },
     );
 
-    window.__ignisBootReady = priority;
+    // Chain workspace/appearance resolution onto readiness so its config reads hit the warm priority slice instead of the network.
+    window.__ignisBootReady = priority.then(resolveWorkspaceAndAppearance);
   } else {
-    window.__ignisBootReady = Promise.resolve();
     initVaultConfigFallback();
     initVaultListFallback();
     initMetadataCacheFallback();
     initCoreSyncGuardFallback();
+    // No prefetch on the fallback path, so resolve directly; the reads fall through to the network.
+    resolveWorkspaceAndAppearance();
+    window.__ignisBootReady = Promise.resolve();
   }
 
   installRequestUrlShim();
