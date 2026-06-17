@@ -5,6 +5,7 @@ const compression = require("compression");
 const config = require("./config");
 const settings = require("./settings");
 const { getVersion } = require("./version");
+const { versionedSrc, cacheControlFor } = require("./cache-headers");
 const {
   setupWebSocket,
   watcher,
@@ -138,13 +139,22 @@ function buildIndexHtml() {
     scripts.push(match[1]);
   }
 
+  // Version Obsidian's assets by the Obsidian version so an upgrade busts their immutable cache.
+  // Omitted when the version is unknown, so nothing is pinned immutable against a wrong version.
+  const ov = config.obsidianVersion;
+  const obsidianVersion = ov && ov !== "0.0.0" ? ov : null;
+
   // Build from our own template
   const templatePath = path.join(__dirname, "assets", "index.html");
   let html = fs.readFileSync(templatePath, "utf-8");
 
   html = html.replace("__IGNIS_UI_SRC__", `ignis-ui.js?v=${version}`);
   html = html.replace("__SHIM_LOADER_SRC__", `shim-loader.js?v=${version}`);
-  html = html.replace("__OBSIDIAN_SCRIPTS__", JSON.stringify(scripts));
+  html = html.replace("__APP_CSS_SRC__", versionedSrc("app.css", obsidianVersion));
+  html = html.replace(
+    "__OBSIDIAN_SCRIPTS__",
+    JSON.stringify(scripts.map((s) => versionedSrc(s, obsidianVersion))),
+  );
 
   if (config.demoMode) {
     html = html.replace(
@@ -167,17 +177,15 @@ app.get("/favicon.png", (req, res) => {
   res.sendFile(path.join(REPO_ROOT, "images", "favicon.png"));
 });
 
-// Serve dist files with cache headers based on version param
+// Cache headers for static assets, by version query.
+// Set before express.static, which only fills Cache-Control when it is not already present.
 app.use((req, res, next) => {
-  if (req.path.match(/\/(ignis-ui|shim-loader)\.js$/)) {
-    if (req.query.v) {
-      // Versioned assets - cache for 1 year
-      res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
-    } else {
-      // No version param - short cache for dev/fallback
-      res.setHeader("Cache-Control", "public, max-age=300");
-    }
+  const cacheControl = cacheControlFor(req.path, !!req.query.v);
+
+  if (cacheControl) {
+    res.setHeader("Cache-Control", cacheControl);
   }
+
   next();
 });
 
