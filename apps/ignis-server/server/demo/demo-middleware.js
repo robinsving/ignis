@@ -10,6 +10,8 @@ const {
   sessions,
   makeStorageName,
   tryParseUserVaultName,
+  isValidUserVaultName,
+  stripStoragePrefix,
   parseCookies,
   setSessionCookie,
   getOrCreateSession,
@@ -74,6 +76,10 @@ function inboundTranslator(req, res, next) {
 
     // Vault create/rename pass the new name as `name`
     if (req.body.name && (req.path === "/create" || req.path === "/rename")) {
+      if (!isValidUserVaultName(req.body.name)) {
+        return res.status(400).json({ error: "Invalid vault name" });
+      }
+
       req.body.name = makeStorageName(sessionId, req.body.name);
     }
   }
@@ -108,8 +114,7 @@ function outboundTranslator(req, res, next) {
 
   // clean path for UI display.
   const prefix = "demo-" + sessionId + "__";
-  const stripPrefix = (s) =>
-    typeof s === "string" ? s.split(prefix).join("") : s;
+  const stripPrefix = (s) => stripStoragePrefix(s, prefix);
 
   res.json = function (body) {
     if (Array.isArray(body)) {
@@ -192,7 +197,10 @@ function vaultsPerSessionEnforcer(req, res, next) {
 }
 
 function quotaEnforcer(req, res, next) {
-  if (req.path !== "/writeFile" || req.method !== "POST") {
+  if (
+    req.method !== "POST" ||
+    (req.path !== "/writeFile" && req.path !== "/appendFile")
+  ) {
     return next();
   }
 

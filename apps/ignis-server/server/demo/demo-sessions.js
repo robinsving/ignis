@@ -41,6 +41,22 @@ function tryParseUserVaultName(sessionId, storageName) {
   return null;
 }
 
+// Strip the session storage prefix from a value such as a vault path.
+function stripStoragePrefix(value, prefix) {
+  return typeof value === "string" ? value.replace(prefix, "") : value;
+}
+
+// User-visible demo vault names must not collide with the storage-prefix scheme, or the prefix strip on the way back out mangles them.
+function isValidUserVaultName(name) {
+  return (
+    typeof name === "string" &&
+    name.length > 0 &&
+    name.length <= 64 &&
+    !name.includes(PREFIX_SEPARATOR) &&
+    !name.startsWith("demo-")
+  );
+}
+
 function parseCookies(req) {
   const header = req.headers.cookie;
 
@@ -131,6 +147,8 @@ module.exports = {
   prefixFor,
   makeStorageName,
   tryParseUserVaultName,
+  isValidUserVaultName,
+  stripStoragePrefix,
   parseCookies,
   setSessionCookie,
   getOrCreateSession,

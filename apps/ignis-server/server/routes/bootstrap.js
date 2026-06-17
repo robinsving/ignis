@@ -255,7 +255,7 @@ router.get("/", async (req, res) => {
     res.json(entry.response);
   } catch (e) {
     console.error("[bootstrap] error:", e);
-    res.status(500).json({ error: e.message });
+    res.status(500).json({ error: e.code || "internal" });
   }
 });
 

@@ -583,7 +583,10 @@ router.get("/download-zip", async (req, res) => {
     });
 
     archive.pipe(res);
-    archive.directory(resolved, folderName);
+    // Skip symlinked entries so the zip cannot carry a link that escapes the vault on extraction.
+    archive.directory(resolved, folderName, (entry) =>
+      entry.stats && entry.stats.isSymbolicLink() ? false : entry,
+    );
     archive.finalize();
   } catch (e) {
     res

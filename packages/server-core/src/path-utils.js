@@ -9,7 +9,7 @@ function encodeContentDispositionFilename(filename) {
   const hasNonASCII = /[^\x00-\x7F]/.test(filename);
 
   // Escape quotes and backslashes in ASCII filename
-  const escapedFilename = filename.replace(/["\\ ]/g, function (match) {
+  const escapedFilename = filename.replace(/["\\]/g, function (match) {
     if (match === '"') return '\\"';
     if (match === "\\") return "\\\\";
     return match;
@@ -35,7 +35,7 @@ function encodeContentDispositionFilename(filename) {
   // For fallback, replace non-ASCII with underscores
   const asciiFallback = filename
     .replace(/[^\x00-\x7F]/g, "_")
-    .replace(/["\\ ]/g, function (match) {
+    .replace(/["\\]/g, function (match) {
       if (match === '"') return '\\"';
       if (match === "\\") return "\\\\";
       return match;

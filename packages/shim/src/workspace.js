@@ -8,6 +8,11 @@ import {
 const WORKSPACE_PATH = ".obsidian/workspace.json";
 const WORKSPACES_PATH = ".obsidian/workspaces.json";
 
+// A workspace name from the URL flows into the per-workspace state-file path, so constrain it.
+export function isValidWorkspaceName(name) {
+  return /^[A-Za-z0-9 _.-]{1,64}$/.test(name);
+}
+
 // Redirect workspace.json to a per-name file when a workspace is active in this tab.
 registerPathResolver(
   (path) => path === WORKSPACE_PATH && !!window.__workspaceName,

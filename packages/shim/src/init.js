@@ -6,6 +6,7 @@ import {
   resolveWorkspaceName,
   loadPresetIfRequested,
   initWorkspacePatch,
+  isValidWorkspaceName,
 } from "./workspace.js";
 import { prefetchVaultContent } from "./fs/indexer-prefetch.js";
 import { setInputCacheLimits } from "./fs/input-cache.js";
@@ -36,7 +37,9 @@ function resolveVaultId() {
   const urlParams = new URLSearchParams(window.location.search);
   window.__currentVaultId =
     urlParams.get("vault") || localStorage.getItem("last-vault") || "";
-  window.__workspaceName = urlParams.get("workspace") || "";
+
+  const workspace = urlParams.get("workspace") || "";
+  window.__workspaceName = isValidWorkspaceName(workspace) ? workspace : "";
 }
 
 // Single round-trip bootstrap: vault info + vault list + metadata tree + plugins.
