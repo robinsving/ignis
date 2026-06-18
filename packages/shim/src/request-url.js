@@ -1,7 +1,7 @@
 // Override window.requestUrl to proxy external requests through our server, bypassing CORS.
 // Obsidian sets window.requestUrl in app.js, so we override it after app.js loads.
 
-import { isSameOrigin } from "./util/url.js";
+import { isSameOrigin, isDirectFetchHost } from "./util/url.js";
 import { proxyFetch } from "./util/proxy.js";
 
 async function proxyRequestUrl(request) {
@@ -9,8 +9,8 @@ async function proxyRequestUrl(request) {
     request = { url: request };
   }
 
-  // Same-origin requests don't need the proxy.
-  if (isSameOrigin(request.url)) {
+  // Same-origin requests don't need the proxy, and allowlisted hosts are fetched directly.
+  if (isSameOrigin(request.url) || isDirectFetchHost(request.url)) {
     const res = await fetch(request.url, {
       method: request.method || "GET",
       headers: request.headers || {},

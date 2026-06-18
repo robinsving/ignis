@@ -16,6 +16,8 @@ const DEFAULTS = {
   proxyMode: "any",
   // Empty allows any public host.
   proxyAllowlist: [],
+  // Hosts the browser fetches directly instead of through the proxy; they must send permissive CORS.
+  directFetchHosts: [],
   wsOrigins: [],
   // Private IPs/CIDRs the proxy may reach despite the SSRF guard.
   proxyAllowPrivate: [],

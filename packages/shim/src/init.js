@@ -10,13 +10,15 @@ import {
 } from "./workspace.js";
 import { prefetchVaultContent } from "./fs/indexer-prefetch.js";
 import { setInputCacheLimits } from "./fs/input-cache.js";
+import { setDirectFetchHosts } from "./util/url.js";
 import { autoTrustDemoVaults, maybeProvisionDemoVault } from "./demo.js";
 import { initNativeMenuGuard } from "./native-menu-guard.js";
 
 let bootstrapVirtualPlugins = [];
 
-// Cache sizes come from the bootstrap response and are applied at page load.
-// The server owns the rest of the settings and applies them on its side.
+// Settings the client must act on come from the bootstrap response and are applied at page load.
+// This includes cache sizes, and the hosts the browser fetches directly instead of via the proxy.
+// The server owns and enforces the rest.
 function applyServerSettings(s) {
   if (!s) {
     return;
@@ -27,6 +29,7 @@ function applyServerSettings(s) {
   }
 
   setInputCacheLimits({ maxSize: s.inputCacheBytes, ttlMs: s.inputCacheTtlMs });
+  setDirectFetchHosts(s.directFetchHosts);
 }
 
 export function getBootstrapVirtualPlugins() {

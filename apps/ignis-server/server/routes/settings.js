@@ -12,7 +12,7 @@ const NUMBER_KEYS = [
   "writeCoalesceMs",
   "maxBodyBytes",
 ];
-const LIST_KEYS = ["proxyAllowlist"];
+const LIST_KEYS = ["proxyAllowlist", "directFetchHosts"];
 
 function validate(body) {
   const clean = {};

@@ -4,7 +4,7 @@ import {
   unregisterPopupWindow,
 } from "./electron/remote/window.js";
 import { showVaultManager } from "./ui-registry.js";
-import { isSameOrigin } from "./util/url.js";
+import { isSameOrigin, isDirectFetchHost } from "./util/url.js";
 import { proxyFetch } from "./util/proxy.js";
 
 function installProcess() {
@@ -143,7 +143,7 @@ function installFetchShim() {
       url = String(input);
     }
 
-    if (isSameOrigin(url)) {
+    if (isSameOrigin(url) || isDirectFetchHost(url)) {
       return originalFetch(input, init);
     }
 

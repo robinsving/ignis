@@ -21,4 +21,31 @@ function isSameOrigin(url) {
   }
 }
 
-export { isSameOrigin };
+// Hosts the user marked safe to fetch directly from the browser, bypassing the proxy.
+// Populated at boot from the server settings, matched by exact hostname (case-insensitive).
+let directFetchHosts = new Set();
+
+function setDirectFetchHosts(list) {
+  directFetchHosts = new Set(
+    (Array.isArray(list) ? list : [])
+      .map((host) => String(host).trim().toLowerCase())
+      .filter(Boolean),
+  );
+}
+
+// True when a request URL's host is on the direct-fetch list.
+// The browser fetches it itself (subject to CORS) instead of routing through the server proxy.
+function isDirectFetchHost(url) {
+  if (directFetchHosts.size === 0) {
+    return false;
+  }
+
+  try {
+    const parsed = new URL(url, window.location.origin);
+    return directFetchHosts.has(parsed.hostname.toLowerCase());
+  } catch {
+    return false;
+  }
+}
+
+export { isSameOrigin, setDirectFetchHosts, isDirectFetchHost };

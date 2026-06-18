@@ -146,6 +146,7 @@ async function buildEntry(vaultId) {
       contentCacheBytes: settings.get("contentCacheBytes"),
       inputCacheBytes: settings.get("inputCacheBytes"),
       inputCacheTtlMs: settings.get("inputCacheTtlMs"),
+      directFetchHosts: settings.get("directFetchHosts"),
     },
   };
 
