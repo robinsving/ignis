@@ -145,3 +145,59 @@ describe("prefetchVaultContent slicing", () => {
     await expect(result.priority).resolves.toBeUndefined();
   });
 });
+
+describe("prefetchVaultContent parallel batching", () => {
+  it("fetches every file across multiple batches and caches each exactly once", async () => {
+    const many = {};
+
+    for (let i = 0; i < 120; i++) {
+      many[`Note${i}.md`] = { type: "file", size: 100 };
+    }
+
+    const cache = makeCache();
+    const result = prefetchVaultContent("v", many, cache);
+    await result.bulk;
+
+    // 120 files / 50 per batch = 3 batches; the worker pool fetches each path once and caches all.
+    expect(fetchCalls.length).toBe(3);
+
+    const allPaths = fetchCalls.flat();
+    expect(allPaths.length).toBe(120);
+    expect(new Set(allPaths).size).toBe(120);
+    expect(cache.store.size).toBe(120);
+  });
+
+  it("caches the batches that landed before a mid-stream failure, without rejecting", async () => {
+    const many = {};
+
+    for (let i = 0; i < 120; i++) {
+      many[`Note${i}.md`] = { type: "file", size: 100 };
+    }
+
+    let calls = 0;
+    globalThis.fetch = vi.fn(async (url, init) => {
+      calls++;
+
+      if (calls === 2) {
+        return { ok: false, status: 500 };
+      }
+
+      const paths = JSON.parse(init.body).paths;
+      const files = {};
+
+      for (const p of paths) {
+        files[p] = "content:" + p;
+      }
+
+      return { ok: true, json: async () => ({ files }) };
+    });
+
+    const cache = makeCache();
+    const result = prefetchVaultContent("v", many, cache);
+
+    await expect(result.bulk).resolves.toBeUndefined();
+    // The batches that landed before the failing one are cached; the failure abandons the rest.
+    expect(cache.store.size).toBeGreaterThan(0);
+    expect(cache.store.size).toBeLessThan(120);
+  });
+});

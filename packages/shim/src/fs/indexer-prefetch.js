@@ -4,9 +4,22 @@
 // The bulk slice (everything else) streams afterward without blocking boot.
 
 const TEXT_EXTENSIONS = new Set([
-  ".md", ".markdown", ".txt", ".json", ".csv",
-  ".css", ".js", ".ts", ".tsx", ".mjs", ".cjs",
-  ".html", ".xml", ".yaml", ".yml", ".toml",
+  ".md",
+  ".markdown",
+  ".txt",
+  ".json",
+  ".csv",
+  ".css",
+  ".js",
+  ".ts",
+  ".tsx",
+  ".mjs",
+  ".cjs",
+  ".html",
+  ".xml",
+  ".yaml",
+  ".yml",
+  ".toml",
   ".svg",
 ]);
 
@@ -17,6 +30,8 @@ const PRIORITY_MAX_FILE_BYTES = 4 * 1024 * 1024; // 4 MB
 // Cap the priority slice's share of the total so a heavy config or plugin set cannot starve the bulk slice.
 const PRIORITY_MAX_BYTES = 10 * 1024 * 1024; // 10 MB
 const BATCH_SIZE = 50;
+// Number of batch-reads in flight at once, capped to the browser's per-origin connection pool (about six on HTTP/1.1).
+const BATCH_CONCURRENCY = 6;
 
 function isTextPath(path) {
   const dot = path.lastIndexOf(".");
@@ -120,37 +135,58 @@ async function runBatches(vaultId, slice, contentCache, label, onProgress) {
     onProgress(0, slice.bytes);
   }
 
+  const batches = [];
+
   for (let i = 0; i < slice.files.length; i += BATCH_SIZE) {
-    const batch = slice.files.slice(i, i + BATCH_SIZE);
+    batches.push(slice.files.slice(i, i + BATCH_SIZE));
+  }
 
-    let result;
+  // Several workers pull batches off a shared cursor until all batches are processed or one fails.
+  let cursor = 0;
+  let aborted = false;
 
-    try {
-      result = await fetchBatch(
-        vaultId,
-        batch.map((f) => f.path),
-      );
-    } catch (e) {
-      // Abandon the rest of this slice; the returned promise still resolves so boot is never blocked on a failed batch.
-      console.warn(`[ignis] Prefetch ${label} batch failed:`, e.message);
-      return;
-    }
+  async function worker() {
+    while (!aborted) {
+      const idx = cursor++;
 
-    for (const [path, content] of Object.entries(result.files || {})) {
-      if (typeof content === "string") {
-        contentCache.set(path, content);
-        cached++;
-      }
-    }
-
-    if (onProgress) {
-      for (const f of batch) {
-        received += f.size;
+      if (idx >= batches.length) {
+        return;
       }
 
-      onProgress(received, slice.bytes);
+      const batch = batches[idx];
+
+      let result;
+
+      try {
+        result = await fetchBatch(
+          vaultId,
+          batch.map((f) => f.path),
+        );
+      } catch (e) {
+        console.warn(`[ignis] Prefetch ${label} batch failed:`, e.message);
+        aborted = true;
+        return;
+      }
+
+      for (const [path, content] of Object.entries(result.files || {})) {
+        if (typeof content === "string") {
+          contentCache.set(path, content);
+          cached++;
+        }
+      }
+
+      if (onProgress) {
+        for (const f of batch) {
+          received += f.size;
+        }
+
+        onProgress(received, slice.bytes);
+      }
     }
   }
+
+  const workerCount = Math.max(1, Math.min(BATCH_CONCURRENCY, batches.length));
+  await Promise.all(Array.from({ length: workerCount }, () => worker()));
 
   const ms = Date.now() - t0;
 
@@ -161,7 +197,12 @@ async function runBatches(vaultId, slice, contentCache, label, onProgress) {
 
 // Returns { priority, bulk }: a promise for each slice.
 // The priority promise resolves once the boot-critical files have landed (or were abandoned on a batch failure), so it is always safe to await.
-export function prefetchVaultContent(vaultId, tree, contentCache, options = {}) {
+export function prefetchVaultContent(
+  vaultId,
+  tree,
+  contentCache,
+  options = {},
+) {
   if (!vaultId || !tree) {
     return { priority: Promise.resolve(), bulk: Promise.resolve() };
   }
