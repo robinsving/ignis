@@ -17,7 +17,8 @@ const tree = {
   somedir: { type: "directory" },
 };
 
-const PRIORITY_BYTES = 100 + 50 + 2 * MB + 80 + 200;
+// Total bytes of the priority-slice files.
+const PRIORITY_BYTES = 100 + 50 + 2 * MB + 80 + 200 + 300 * 1024;
 
 let fetchCalls;
 
@@ -79,12 +80,34 @@ describe("prefetchVaultContent slicing", () => {
     expect(fetchCalls[1]).toContain("plugins/fake/main.js");
   });
 
-  it("leaves plugin data.json to the bulk slice, not priority", async () => {
+  it("promotes plugin data.json into the priority slice", async () => {
     const result = prefetchVaultContent("v", tree, makeCache());
     await result.bulk;
 
-    expect(fetchCalls[0]).not.toContain(".obsidian/plugins/big/data.json");
-    expect(fetchCalls[1]).toContain(".obsidian/plugins/big/data.json");
+    expect(fetchCalls[0]).toContain(".obsidian/plugins/big/data.json");
+    expect(fetchCalls[1]).not.toContain(".obsidian/plugins/big/data.json");
+  });
+
+  it("admits core entry files before data.json, so a large data.json cannot evict a core file", async () => {
+    // The three 3 MB main.js fill 9 MB of the 10 MB priority budget, leaving no room for the 3 MB data.json.
+    const t = {
+      ".obsidian/plugins/a/main.js": { type: "file", size: 3 * MB },
+      ".obsidian/plugins/b/main.js": { type: "file", size: 3 * MB },
+      ".obsidian/plugins/c/main.js": { type: "file", size: 3 * MB },
+      ".obsidian/plugins/a/data.json": { type: "file", size: 3 * MB },
+    };
+
+    const result = prefetchVaultContent("v", t, makeCache());
+    await result.bulk;
+
+    expect(fetchCalls[0]).toEqual(
+      expect.arrayContaining([
+        ".obsidian/plugins/a/main.js",
+        ".obsidian/plugins/b/main.js",
+        ".obsidian/plugins/c/main.js",
+      ]),
+    );
+    expect(fetchCalls[0]).not.toContain(".obsidian/plugins/a/data.json");
   });
 
   it("caps the priority slice at its own byte budget", async () => {

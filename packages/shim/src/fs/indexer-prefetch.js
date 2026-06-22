@@ -43,8 +43,7 @@ function isTextPath(path) {
   return TEXT_EXTENSIONS.has(path.slice(dot).toLowerCase());
 }
 
-// Boot-critical files: root-level .obsidian configs and each plugin's entry files.
-// Plugin data.json and other nested config fall to the bulk slice so a large blob does not inflate the awaited slice.
+// The core boot-critical files: root-level .obsidian configs and each plugin's entry files.
 function isPriorityPath(path) {
   if (!path.startsWith(".obsidian/")) {
     return false;
@@ -58,6 +57,10 @@ function isPriorityPath(path) {
   return /^\.obsidian\/plugins\/[^/]+\/(main\.js|manifest\.json|styles\.css)$/.test(
     path,
   );
+}
+
+function isDataJsonPath(path) {
+  return /^\.obsidian\/plugins\/[^/]+\/data\.json$/.test(path);
 }
 
 function collectSlice(entries, predicate, perFileCap, budget) {
@@ -89,17 +92,33 @@ function collectSlice(entries, predicate, perFileCap, budget) {
 function selectPrefetchTargets(tree) {
   // Tree key order matches directory traversal (the server walk emits parent before children).
   const entries = Object.entries(tree);
-  const priority = collectSlice(
+
+  // Admit the core boot files first, then each plugin's data.json into the leftover budget, so data.json never evicts a core file.
+  const core = collectSlice(
     entries,
     isPriorityPath,
     PRIORITY_MAX_FILE_BYTES,
     PRIORITY_MAX_BYTES,
   );
 
-  // Bulk fills whatever byte budget the priority slice left.
+  const data = collectSlice(
+    entries,
+    isDataJsonPath,
+    PRIORITY_MAX_FILE_BYTES,
+    PRIORITY_MAX_BYTES - core.bytes,
+  );
+
+  const priority = {
+    files: [...core.files, ...data.files],
+    bytes: core.bytes + data.bytes,
+  };
+
+  // Bulk is everything the priority slice did not admit, so a file dropped from priority by a cap or the budget still gets a chance in bulk.
+  const admitted = new Set(priority.files.map((f) => f.path));
+
   const bulk = collectSlice(
     entries,
-    (path) => !isPriorityPath(path),
+    (path) => !admitted.has(path),
     MAX_FILE_BYTES,
     MAX_BYTES - priority.bytes,
   );
