@@ -267,6 +267,8 @@ export function initialize() {
       { onProgress: updateBootProgress },
     );
 
+    window.__ignisBooting = true;
+
     // Chain workspace/appearance resolution onto readiness so its config reads hit the warm priority slice instead of the network.
     window.__ignisBootReady = priority.then(resolveWorkspaceAndAppearance);
   } else {

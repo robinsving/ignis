@@ -1,4 +1,13 @@
 import { markLocalOp } from "./echo-guard.js";
+import {
+  bufferWrite,
+  cancelPending,
+  COALESCE_MAX_BYTES,
+  enqueueWrite,
+  hasPending,
+  initWriteCoalescer,
+  isBooting,
+} from "./write-coalescer.js";
 import { isInputCachePath, inputCacheGet } from "./input-cache.js";
 import {
   applyReadTransform,
@@ -10,6 +19,8 @@ import { hasVirtualFile, getVirtualFile } from "./virtual-files.js";
 import { realpathSync } from "./realpath.js";
 
 export function createFsPromises(metadataCache, contentCache, transport) {
+  initWriteCoalescer(transport);
+
   return {
     async stat(path) {
       const resolved = resolvePath(path);
@@ -138,13 +149,21 @@ export function createFsPromises(metadataCache, contentCache, transport) {
       const resolved = resolvePath(path);
       const transformed = applyWriteTransform(resolved, data);
 
-      markLocalOp(resolved);
       contentCache.set(resolved, transformed);
 
       const size =
         typeof transformed === "string"
           ? transformed.length
           : transformed.byteLength || 0;
+
+      const applyResult = (result) => {
+        metadataCache.set(resolved, {
+          type: "file",
+          size: result.size || size,
+          mtime: result.mtime,
+          ctime: metadataCache.get(resolved)?.ctime || Date.now(),
+        });
+      };
 
       metadataCache.set(resolved, {
         type: "file",
@@ -153,16 +172,17 @@ export function createFsPromises(metadataCache, contentCache, transport) {
         ctime: metadataCache.get(resolved)?.ctime || Date.now(),
       });
 
-      const result = await transport.writeFile(resolved, transformed, encoding);
-
-      if (result.mtime) {
-        metadataCache.set(resolved, {
-          type: "file",
-          size: result.size || size,
-          mtime: result.mtime,
-          ctime: metadataCache.get(resolved)?.ctime || Date.now(),
-        });
+      if (isBooting() && size <= COALESCE_MAX_BYTES) {
+        bufferWrite(resolved, transformed, encoding, applyResult);
+        return;
       }
+
+      // An awaited write supersedes a still-buffered one for this path.
+      if (hasPending(resolved)) {
+        cancelPending(resolved);
+      }
+
+      await enqueueWrite(resolved, transformed, encoding, applyResult);
     },
 
     async appendFile(path, data, encoding) {
@@ -273,13 +293,17 @@ export function createFsPromises(metadataCache, contentCache, transport) {
 
     async utimes(path, atime, mtime) {
       const resolved = resolvePath(path);
-
-      await transport.utimes(resolved, atime, mtime);
       const meta = metadataCache.get(resolved);
+
       if (meta) {
         meta.mtime = typeof mtime === "number" ? mtime : mtime.getTime();
         metadataCache.set(resolved, meta);
       }
+
+      // mtime is non-critical, so flush it in the background instead of awaiting.
+      transport.utimes(resolved, atime, mtime).catch((e) => {
+        console.error("[shim:fs] utimes background flush failed:", resolved, e);
+      });
     },
 
     async chmod() {
