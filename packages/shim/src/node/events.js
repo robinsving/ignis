@@ -30,6 +30,8 @@ export class EventEmitter {
       return false;
     }
 
+    // Iterate a snapshot: a once-listener removes itself from this array during emit, which would corrupt a live iteration.
+    // eslint-disable-next-line unicorn/no-useless-spread
     for (const fn of [...listeners]) {
       fn.apply(this, args);
     }

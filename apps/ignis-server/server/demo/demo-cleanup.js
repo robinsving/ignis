@@ -13,6 +13,7 @@ const {
   makeStorageName,
   PREFIX_SEPARATOR,
 } = require("./demo-sessions");
+const { recomputeBytes } = require("./demo-provision");
 
 async function cleanupSession(sessionId) {
   const s = sessions.get(sessionId);
@@ -60,6 +61,12 @@ async function cleanupExpired() {
 
   for (const sessionId of expired) {
     await cleanupSession(sessionId);
+  }
+
+  // Correct optimistic-quota drift for the sessions that remain (copyFile and mkdir add bytes the per-request quota gate does not count).
+  // eslint-disable-next-line unicorn/no-useless-spread
+  for (const sessionId of [...sessions.keys()]) {
+    await recomputeBytes(sessionId);
   }
 
   // Orphan scan: directories matching demo-* whose session is gone

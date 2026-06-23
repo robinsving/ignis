@@ -4,6 +4,7 @@ import {
   applyReadTransform,
   applyWriteTransform,
   resolvePath,
+  resolvePathInfo,
 } from "./transforms.js";
 import { hasVirtualFile, getVirtualFile } from "./virtual-files.js";
 
@@ -69,7 +70,7 @@ export function createFsSync(metadataCache, contentCache, transport) {
       }
 
       const wantText = encoding === "utf8" || encoding === "utf-8";
-      const resolved = resolvePath(path);
+      const { resolved, redirected } = resolvePathInfo(path);
 
       // Virtual plugin source overrides any cache or transport version.
       if (hasVirtualFile(resolved)) {
@@ -108,13 +109,22 @@ export function createFsSync(metadataCache, contentCache, transport) {
         result = contentCache.get(resolved);
       }
 
+      // The metadata cache is kept fresh by the filewatcher and a miss here genuinely means the file is absent.
+      // Redirected paths fall through to the transport, so we can't trust the cache for them, but non-redirected misses are definitive.
+      if (result === null && !meta && !redirected) {
+        const e = new Error(
+          `ENOENT: no such file or directory, open '${path}'`,
+        );
+        e.code = "ENOENT";
+        throw e;
+      }
+
       if (result === null) {
-        // ENOENT fallback: if the resolved path doesn't exist, try the original.
-        // Covers per-name workspace files that haven't been saved yet.
+        // A resolver can map a path onto a physical target that does not exist yet, so a redirected miss retries the original path before failing.
         try {
           result = transport.readFileSync(resolved, encoding);
         } catch (e) {
-          if (resolved !== path && e.code === "ENOENT") {
+          if (redirected && e.code === "ENOENT") {
             console.warn(
               "[shim:fs] readFileSync cache miss, using sync XHR:",
               path,
@@ -206,20 +216,32 @@ export function createFsSync(metadataCache, contentCache, transport) {
       const recursive =
         typeof options === "object" ? !!options.recursive : !!options;
 
-      markLocalOp(path);
-      metadataCache.set(path, { type: "directory" });
+      const resolved = resolvePath(path);
 
-      transport.mkdir(path, recursive).catch((e) => {
-        console.error("[shim:fs] mkdirSync background create failed:", path, e);
+      markLocalOp(resolved);
+      metadataCache.set(resolved, { type: "directory" });
+
+      transport.mkdir(resolved, recursive).catch((e) => {
+        console.error(
+          "[shim:fs] mkdirSync background create failed:",
+          resolved,
+          e,
+        );
       });
     },
 
     rmdirSync(path) {
-      markLocalOp(path);
-      metadataCache.delete(path);
+      const resolved = resolvePath(path);
 
-      transport.rmdir(path).catch((e) => {
-        console.error("[shim:fs] rmdirSync background remove failed:", path, e);
+      markLocalOp(resolved);
+      metadataCache.delete(resolved);
+
+      transport.rmdir(resolved).catch((e) => {
+        console.error(
+          "[shim:fs] rmdirSync background remove failed:",
+          resolved,
+          e,
+        );
       });
     },
 

@@ -52,7 +52,7 @@ class HeadlessSyncSettingTab extends PluginSettingTab {
 
     try {
       serverStatus = await api.getStatus();
-    } catch (e) {
+    } catch {
       containerEl.createEl("p", {
         text: "Failed to connect to Headless Sync server plugin.",
         cls: "mod-warning",

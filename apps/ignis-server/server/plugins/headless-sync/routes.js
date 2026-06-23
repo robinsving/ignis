@@ -1,5 +1,6 @@
 const auth = require("./auth");
 const obCli = require("./ob-cli");
+const { sanitizeError } = require("@ignis/server-core");
 
 function mountRoutes(router, plugin) {
   router.get("/status", (req, res) => {
@@ -30,7 +31,8 @@ function mountRoutes(router, plugin) {
       ctx.log(`Auth token saved${email ? ` for ${email}` : ""}`);
       res.json({ success: true });
     } catch (e) {
-      res.status(500).json({ error: e.message });
+      ctx.log(`Login failed: ${e.message}`);
+      res.status(500).json(sanitizeError(e));
     }
   });
 
@@ -42,7 +44,8 @@ function mountRoutes(router, plugin) {
       ctx.log("Auth token cleared");
       res.json({ success: true });
     } catch (e) {
-      res.status(500).json({ error: e.message });
+      ctx.log(`Logout failed: ${e.message}`);
+      res.status(500).json(sanitizeError(e));
     }
   });
 
@@ -76,7 +79,7 @@ function mountRoutes(router, plugin) {
       res.json({ success: true, state });
     } catch (e) {
       ctx.log(`Failed to setup sync: ${e.message}`);
-      res.status(500).json({ error: e.message });
+      res.status(500).json(sanitizeError(e));
     }
   });
 
@@ -94,7 +97,7 @@ function mountRoutes(router, plugin) {
       res.json({ success: true, state });
     } catch (e) {
       ctx.log(`Failed to start sync: ${e.message}`);
-      res.status(500).json({ error: e.message });
+      res.status(500).json(sanitizeError(e));
     }
   });
 
@@ -112,7 +115,7 @@ function mountRoutes(router, plugin) {
       res.json({ success: true, state });
     } catch (e) {
       ctx.log(`Failed to stop sync: ${e.message}`);
-      res.status(500).json({ error: e.message });
+      res.status(500).json(sanitizeError(e));
     }
   });
 
@@ -130,7 +133,7 @@ function mountRoutes(router, plugin) {
       res.json({ success: true });
     } catch (e) {
       ctx.log(`Failed to unlink vault: ${e.message}`);
-      res.status(500).json({ error: e.message });
+      res.status(500).json(sanitizeError(e));
     }
   });
 
@@ -183,7 +186,7 @@ function mountRoutes(router, plugin) {
       res.json({ success: true });
     } catch (e) {
       ctx.log(`Failed to create remote vault: ${e.message}`);
-      res.status(500).json({ error: e.message });
+      res.status(500).json(sanitizeError(e));
     }
   });
 
@@ -200,7 +203,7 @@ function mountRoutes(router, plugin) {
       res.json({ vaults });
     } catch (e) {
       ctx.log(`Failed to list remote vaults: ${e.message}`);
-      res.status(500).json({ error: e.message });
+      res.status(500).json(sanitizeError(e));
     }
   });
 }

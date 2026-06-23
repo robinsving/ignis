@@ -122,9 +122,11 @@ Both examples require DNS records pointing to your server:
 
 ### HTTPS
 
+HTTPS is required for full functionality, not just for confidentiality: served over plain HTTP at a non-localhost origin, the browser disables the crypto and clipboard APIs Obsidian relies on, breaking graph view, the outline, clipboard operations, and Sync. Both examples below terminate TLS.
+
 Caddy handles TLS automatically via Let's Encrypt. For this to work, your domain must be publicly resolvable and ports 80/443 must be reachable from the internet (Let's Encrypt needs to verify domain ownership).
 
-If you're running on a local network without public DNS, you can use Caddy's [internal TLS](https://caddyserver.com/docs/caddyfile/directives/tls#internal) to generate self-signed certificates. Add `tls internal` inside each site block in the Caddyfile.
+If you're running on a local network without public DNS, you can use Caddy's [internal TLS](https://caddyserver.com/docs/caddyfile/directives/tls#internal) to generate self-signed certificates. Add `tls internal` inside each site block in the Caddyfile, or use `tailscale serve` to put HTTPS in front of Ignis on a tailnet.
 
 ### Vault data
 

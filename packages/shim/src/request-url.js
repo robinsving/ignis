@@ -1,7 +1,7 @@
 // Override window.requestUrl to proxy external requests through our server, bypassing CORS.
 // Obsidian sets window.requestUrl in app.js, so we override it after app.js loads.
 
-import { isSameOrigin } from "./util/url.js";
+import { isSameOrigin, isDirectFetchHost } from "./util/url.js";
 import { proxyFetch } from "./util/proxy.js";
 
 async function proxyRequestUrl(request) {
@@ -9,8 +9,8 @@ async function proxyRequestUrl(request) {
     request = { url: request };
   }
 
-  // Same-origin requests don't need the proxy.
-  if (isSameOrigin(request.url)) {
+  // Same-origin requests don't need the proxy, and allowlisted hosts are fetched directly.
+  if (isSameOrigin(request.url) || isDirectFetchHost(request.url)) {
     const res = await fetch(request.url, {
       method: request.method || "GET",
       headers: request.headers || {},
@@ -54,15 +54,12 @@ function makeResponse(request, status, headers, arrayBuf) {
 export function installRequestUrlShim() {
   // Obsidian sets window.requestUrl in app.js. We override it once the page loads.
   // Use a getter so it intercepts even if app.js sets it later.
-  let _original = null;
-
   Object.defineProperty(window, "requestUrl", {
     get() {
       return proxyRequestUrl;
     },
-    set(val) {
-      _original = val;
-    },
+    // Swallow Obsidian's later assignment so the shim keeps serving its own requestUrl.
+    set() {},
     configurable: true,
   });
 }

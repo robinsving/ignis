@@ -6,16 +6,19 @@ const path = require("path");
  * Uses RFC 5987 encoding for filename* parameter when needed.
  */
 function encodeContentDispositionFilename(filename) {
+  // The \x00-\x7F range bounds the ASCII set; matching its control-character low end is intentional.
+  // eslint-disable-next-line no-control-regex
   const hasNonASCII = /[^\x00-\x7F]/.test(filename);
 
   // Escape quotes and backslashes in ASCII filename
-  const escapedFilename = filename.replace(/["\\ ]/g, function (match) {
+  const escapedFilename = filename.replace(/["\\]/g, function (match) {
     if (match === '"') return '\\"';
     if (match === "\\") return "\\\\";
     return match;
   });
 
   // Remove any control characters that could cause header injection
+  // eslint-disable-next-line no-control-regex
   const sanitizedFilename = escapedFilename.replace(/[\x00-\x1F\x7F]/g, "");
 
   if (!hasNonASCII) {
@@ -34,8 +37,10 @@ function encodeContentDispositionFilename(filename) {
   // Provide both filename (ASCII fallback) and filename* (UTF-8 encoded)
   // For fallback, replace non-ASCII with underscores
   const asciiFallback = filename
+    // Control-character code points are intentional here; this regex bounds the ASCII set.
+    // eslint-disable-next-line no-control-regex
     .replace(/[^\x00-\x7F]/g, "_")
-    .replace(/["\\ ]/g, function (match) {
+    .replace(/["\\]/g, function (match) {
       if (match === '"') return '\\"';
       if (match === "\\") return "\\\\";
       return match;

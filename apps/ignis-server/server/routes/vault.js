@@ -3,6 +3,7 @@ const fs = require("fs");
 const config = require("../config");
 const path = require("path");
 const bootstrapRoutes = require("./bootstrap");
+const { sanitizeError } = require("@ignis/server-core");
 
 const router = express.Router();
 
@@ -14,7 +15,7 @@ function isValidVaultName(name) {
     return false;
   }
 
-  if (/[\/\\:*?"<>|]/.test(name)) {
+  if (/[/\\:*?"<>|]/.test(name)) {
     return false;
   }
 
@@ -81,7 +82,7 @@ router.post("/create", async (req, res) => {
       return res.status(409).json({ error: "Vault already exists" });
     }
 
-    res.status(500).json({ error: e.code || "internal", code: e.code });
+    res.status(500).json(sanitizeError(e));
   }
 });
 
@@ -117,7 +118,7 @@ router.post("/rename", async (req, res) => {
         .json({ error: "A vault with that name already exists" });
     }
 
-    res.status(500).json({ error: e.code || "internal", code: e.code });
+    res.status(500).json(sanitizeError(e));
   }
 });
 
@@ -138,7 +139,7 @@ router.delete("/remove", async (req, res) => {
 
     res.json({ ok: true });
   } catch (e) {
-    res.status(500).json({ error: e.code || "internal", code: e.code });
+    res.status(500).json(sanitizeError(e));
   }
 });
 

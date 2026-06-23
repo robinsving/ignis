@@ -12,7 +12,7 @@ const NUMBER_KEYS = [
   "writeCoalesceMs",
   "maxBodyBytes",
 ];
-const LIST_KEYS = ["proxyAllowlist"];
+const LIST_KEYS = ["proxyAllowlist", "directFetchHosts"];
 
 function validate(body) {
   const clean = {};
@@ -81,6 +81,8 @@ router.post("/", (req, res) => {
   try {
     clean = validate(req.body || {});
   } catch (e) {
+    // validate() throws deliberate, safe messages naming the invalid setting; don't use sanitizeError.
+    // leak-allow
     return res.status(400).json({ error: e.message });
   }
 

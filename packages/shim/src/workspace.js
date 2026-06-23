@@ -8,6 +8,11 @@ import {
 const WORKSPACE_PATH = ".obsidian/workspace.json";
 const WORKSPACES_PATH = ".obsidian/workspaces.json";
 
+// A workspace name from the URL flows into the per-workspace state-file path, so constrain it.
+export function isValidWorkspaceName(name) {
+  return /^[A-Za-z0-9 _.-]{1,64}$/.test(name);
+}
+
 // Redirect workspace.json to a per-name file when a workspace is active in this tab.
 registerPathResolver(
   (path) => path === WORKSPACE_PATH && !!window.__workspaceName,
@@ -86,71 +91,40 @@ export function loadPresetIfRequested() {
   }
 }
 
-export function resolveWorkspaceName() {
+function readJsonIfPresent(path) {
   try {
-    const vaultParam = window.__currentVaultId
-      ? "?vault=" + encodeURIComponent(window.__currentVaultId)
-      : "";
+    return JSON.parse(fsShim.readFileSync(path, "utf-8"));
+  } catch {
+    return null;
+  }
+}
 
-    const sep = vaultParam ? "&" : "?";
+export function resolveWorkspaceName() {
+  // With no URL param, only resolve a workspace when the workspaces core plugin is enabled.
+  if (!window.__workspaceName) {
+    const corePlugins = readJsonIfPresent(".obsidian/core-plugins.json");
 
-    // If no param provided, check if workspaces plugin is enabled before resolving.
-    if (!window.__workspaceName) {
-      const coreXhr = new XMLHttpRequest();
-
-      coreXhr.open(
-        "GET",
-        "/api/fs/readFile" +
-          vaultParam +
-          sep +
-          "path=.obsidian/core-plugins.json&encoding=utf-8",
-        false,
-      );
-      coreXhr.send();
-
-      if (coreXhr.status !== 200) {
-        return;
-      }
-
-      const corePlugins = JSON.parse(coreXhr.responseText);
-
-      if (!corePlugins.workspaces) {
-        return;
-      }
-    }
-
-    // Read workspaces.json to get the active field.
-    const xhr = new XMLHttpRequest();
-
-    xhr.open(
-      "GET",
-      "/api/fs/readFile" +
-        vaultParam +
-        sep +
-        "path=.obsidian/workspaces.json&encoding=utf-8",
-      false,
-    );
-    xhr.send();
-
-    if (xhr.status !== 200) {
+    if (!corePlugins || !corePlugins.workspaces) {
       return;
     }
+  }
 
-    const workspaces = JSON.parse(xhr.responseText);
+  const workspaces = readJsonIfPresent(WORKSPACES_PATH);
 
-    // Always store the original active value for the write transform.
-    if (workspaces.active) {
-      window.__originalActiveWorkspace = workspaces.active;
-    }
+  if (!workspaces) {
+    return;
+  }
 
-    // If no param was provided, seed from the active workspace.
-    if (!window.__workspaceName && workspaces.active) {
-      window.__workspaceName = workspaces.active;
-      setWorkspaceParam(workspaces.active);
-      console.log("[ignis] Workspace resolved from active:", workspaces.active);
-    }
-  } catch (e) {
-    console.warn("[ignis] Failed to resolve workspace name:", e);
+  // Keep the original active value so the write transform can restore it on disk.
+  if (workspaces.active) {
+    window.__originalActiveWorkspace = workspaces.active;
+  }
+
+  // With no URL param, seed from the active workspace.
+  if (!window.__workspaceName && workspaces.active) {
+    window.__workspaceName = workspaces.active;
+    setWorkspaceParam(workspaces.active);
+    console.log("[ignis] Workspace resolved from active:", workspaces.active);
   }
 }
 

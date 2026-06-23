@@ -5,6 +5,7 @@ const http = require("http");
 const https = require("https");
 const zlib = require("zlib");
 const settings = require("../settings");
+const { sanitizeError } = require("@ignis/server-core");
 
 const router = express.Router();
 
@@ -360,6 +361,8 @@ router.post("/", async (req, res) => {
   try {
     await assertPublicUrl(url);
   } catch (e) {
+    // assertPublicUrl throws deliberate, safe guard messages (blocked host, bad scheme); don't use sanitizeError.
+    // leak-allow
     return res.status(e.statusCode || 400).json({ error: e.message });
   }
 
@@ -418,7 +421,7 @@ router.post("/", async (req, res) => {
       body: respBody.toString("base64"),
     });
   } catch (e) {
-    res.status(e.statusCode || 502).json({ error: e.message });
+    res.status(e.statusCode || 502).json(sanitizeError(e));
   }
 });
 

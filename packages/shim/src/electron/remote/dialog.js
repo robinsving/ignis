@@ -206,7 +206,7 @@ export const dialogShim = {
     }
 
     const defaultName =
-      options?.defaultPath?.split(/[\/\\]/).pop() || "download";
+      options?.defaultPath?.split(/[/\\]/).pop() || "download";
     const name = await showPromptDialog(
       "Save File",
       "Save as:",

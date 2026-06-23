@@ -15,6 +15,7 @@ const {
 } = require("../plugin-system/manager");
 const { getVersion } = require("../version");
 const settings = require("../settings");
+const { sanitizeError } = require("@ignis/server-core");
 
 const router = express.Router();
 
@@ -145,6 +146,7 @@ async function buildEntry(vaultId) {
       contentCacheBytes: settings.get("contentCacheBytes"),
       inputCacheBytes: settings.get("inputCacheBytes"),
       inputCacheTtlMs: settings.get("inputCacheTtlMs"),
+      directFetchHosts: settings.get("directFetchHosts"),
     },
   };
 
@@ -255,7 +257,7 @@ router.get("/", async (req, res) => {
     res.json(entry.response);
   } catch (e) {
     console.error("[bootstrap] error:", e);
-    res.status(500).json({ error: e.message });
+    res.status(500).json(sanitizeError(e));
   }
 });
 

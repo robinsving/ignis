@@ -7,6 +7,7 @@ const {
   writeCoalescer,
   encodeContentDispositionFilename,
   resolveVaultPath,
+  sanitizeError,
 } = require("@ignis/server-core");
 const { writeCoalesced, getPending } = writeCoalescer;
 const bootstrapRoutes = require("./bootstrap");
@@ -98,7 +99,7 @@ router.get("/stat", async (req, res) => {
   } catch (e) {
     res
       .status(e.code === "ENOENT" ? 404 : 500)
-      .json({ error: e.code || "internal", code: e.code });
+      .json(sanitizeError(e));
   }
 });
 
@@ -133,7 +134,7 @@ router.get("/readdir", async (req, res) => {
   } catch (e) {
     res
       .status(e.code === "ENOENT" ? 404 : 500)
-      .json({ error: e.code || "internal", code: e.code });
+      .json(sanitizeError(e));
   }
 });
 
@@ -184,7 +185,7 @@ router.get("/readFile", async (req, res) => {
   } catch (e) {
     res
       .status(e.code === "ENOENT" ? 404 : 500)
-      .json({ error: e.code || "internal", code: e.code });
+      .json(sanitizeError(e));
   }
 });
 
@@ -213,7 +214,7 @@ router.post("/writeFile", async (req, res) => {
     invalidateBootstrap(req);
     res.json({ ok: true, mtime: result.mtime, size: result.size });
   } catch (e) {
-    res.status(500).json({ error: e.code || "internal", code: e.code });
+    res.status(500).json(sanitizeError(e));
   }
 });
 
@@ -231,7 +232,7 @@ router.post("/appendFile", async (req, res) => {
     invalidateBootstrap(req);
     res.json({ ok: true });
   } catch (e) {
-    res.status(500).json({ error: e.code || "internal", code: e.code });
+    res.status(500).json(sanitizeError(e));
   }
 });
 
@@ -251,7 +252,7 @@ router.post("/mkdir", async (req, res) => {
     invalidateBootstrap(req);
     res.json({ ok: true });
   } catch (e) {
-    res.status(500).json({ error: e.code || "internal", code: e.code });
+    res.status(500).json(sanitizeError(e));
   }
 });
 
@@ -280,7 +281,7 @@ router.post("/rename", async (req, res) => {
     invalidateBootstrap(req);
     res.json({ ok: true });
   } catch (e) {
-    res.status(500).json({ error: e.code || "internal", code: e.code });
+    res.status(500).json(sanitizeError(e));
   }
 });
 
@@ -309,7 +310,7 @@ router.post("/copyFile", async (req, res) => {
     invalidateBootstrap(req);
     res.json({ ok: true });
   } catch (e) {
-    res.status(500).json({ error: e.code || "internal", code: e.code });
+    res.status(500).json(sanitizeError(e));
   }
 });
 
@@ -331,7 +332,7 @@ router.delete("/unlink", async (req, res) => {
       // File already gone  -  desired outcome achieved
       res.json({ ok: true });
     } else {
-      res.status(500).json({ error: e.code || "internal", code: e.code });
+      res.status(500).json(sanitizeError(e));
     }
   }
 });
@@ -350,7 +351,7 @@ router.delete("/rmdir", async (req, res) => {
     invalidateBootstrap(req);
     res.json({ ok: true });
   } catch (e) {
-    res.status(500).json({ error: e.code || "internal", code: e.code });
+    res.status(500).json(sanitizeError(e));
   }
 });
 
@@ -370,7 +371,7 @@ router.delete("/rm", async (req, res) => {
     invalidateBootstrap(req);
     res.json({ ok: true });
   } catch (e) {
-    res.status(500).json({ error: e.code || "internal", code: e.code });
+    res.status(500).json(sanitizeError(e));
   }
 });
 
@@ -388,7 +389,7 @@ router.get("/access", async (req, res) => {
   } catch (e) {
     res
       .status(e.code === "ENOENT" ? 404 : 500)
-      .json({ error: e.code || "internal", code: e.code });
+      .json(sanitizeError(e));
   }
 });
 
@@ -410,7 +411,7 @@ router.post("/utimes", async (req, res) => {
     invalidateBootstrap(req);
     res.json({ ok: true });
   } catch (e) {
-    res.status(500).json({ error: e.code || "internal", code: e.code });
+    res.status(500).json(sanitizeError(e));
   }
 });
 
@@ -520,7 +521,7 @@ router.get("/tree", async (req, res) => {
 
     res.json(tree);
   } catch (e) {
-    res.status(500).json({ error: e.code || "internal", code: e.code });
+    res.status(500).json(sanitizeError(e));
   }
 });
 
@@ -550,7 +551,7 @@ router.get("/download", async (req, res) => {
   } catch (e) {
     res
       .status(e.code === "ENOENT" ? 404 : 500)
-      .json({ error: e.code || "internal", code: e.code });
+      .json(sanitizeError(e));
   }
 });
 
@@ -583,12 +584,15 @@ router.get("/download-zip", async (req, res) => {
     });
 
     archive.pipe(res);
-    archive.directory(resolved, folderName);
+    // Skip symlinked entries so the zip cannot carry a link that escapes the vault on extraction.
+    archive.directory(resolved, folderName, (entry) =>
+      entry.stats && entry.stats.isSymbolicLink() ? false : entry,
+    );
     archive.finalize();
   } catch (e) {
     res
       .status(e.code === "ENOENT" ? 404 : 500)
-      .json({ error: e.code || "internal", code: e.code });
+      .json(sanitizeError(e));
   }
 });
 

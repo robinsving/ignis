@@ -66,7 +66,7 @@ class SyncManager {
   saveStates() {
     const data = [];
 
-    for (const [vaultId, state] of this.states) {
+    for (const state of this.states.values()) {
       data.push({
         vaultId: state.vaultId,
         vaultPath: state.vaultPath,

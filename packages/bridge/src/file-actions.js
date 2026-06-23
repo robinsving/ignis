@@ -1,4 +1,4 @@
-import { Notice, TFile, TFolder } from "obsidian";
+import { Notice } from "obsidian";
 
 function getVaultId() {
   return window.__currentVaultId || "";

@@ -5,6 +5,7 @@ The self-hosted Docker variant of Ignis. For the project overview, feature list,
 ## Contents
 
 - [Authentication](#authentication)
+- [Secure context (HTTPS)](#secure-context-https)
 - [Setup with Docker Compose](#setup-with-docker-compose)
 - [Volumes](#volumes)
 - [Environment Variables](#environment-variables)
@@ -15,6 +16,9 @@ The self-hosted Docker variant of Ignis. For the project overview, feature list,
 ## Authentication
 
 Ignis has **no built-in authentication** and serves plain HTTP by default. Both authentication and TLS termination are expected to be handled by whatever you put in front of it.
+
+> [!IMPORTANT]
+> HTTPS is functionally required, not just for confidentiality. Browser crypto and clipboard APIs are gated to secure contexts, so plain HTTP at a non-localhost origin breaks graph view, the outline, Sync, and more. `localhost` is exempt. See [Secure context (HTTPS)](#secure-context-https).
 
 If you are exposing Ignis to the internet, **you should really** put an authentication layer in front of it. Options include:
 
@@ -28,7 +32,20 @@ Example configurations for Basic Auth and Authelia are in [`examples/`](examples
 > [!CAUTION]
 > Do not run Ignis on a public network without auth. Anyone with the URL can read and write your vault files.
 
-Ignis also runs a cross-origin proxy (`/api/proxy`) that reaches any public host by default. It rejects private, loopback, and link-local addresses, and you can narrow it to an allowlist or disable it entirely from the proxy settings in the Ignis settings panel.
+Ignis also runs a cross-origin proxy (`/api/proxy`) that reaches any public host by default. It rejects private, loopback, and link-local addresses, and you can narrow it to an allowlist or disable it entirely from the proxy settings in the Ignis settings panel. A companion direct-fetch host list (same Settings > Security panel) marks hosts the browser fetches directly instead of through the proxy, for CORS-friendly hosts.
+
+## Secure context (HTTPS)
+
+Browsers only expose the crypto and clipboard APIs Obsidian relies on in a [secure context](https://developer.mozilla.org/en-US/docs/Web/Security/Secure_Contexts). Served over plain HTTP at a non-localhost origin (a LAN IP or a bare domain), Ignis loses graph view, backlinks, the outline, some clipboard operations, and Sync, and shows a warning banner. `http://localhost` and `http://127.0.0.1` are treated as secure, so a purely local instance is unaffected.
+
+Three ways to get a secure context:
+
+- **A TLS reverse proxy.** Caddy, nginx, Traefik, or any of the [`examples/`](examples) configs. For anything internet-facing.
+- **`tailscale serve`.** Puts HTTPS in front of Ignis on a tailnet with no certificate management. For private remote access.
+- **Mark the origin trusted in the browser.** The most direct fix for LAN access without TLS: tell the browser to treat the Ignis origin as a secure context. No server changes, but per-browser and per-machine, so every client has to set it.
+  - **Chromium (Chrome, Edge, Brave, Opera, Vivaldi):** open `chrome://flags/#unsafely-treat-insecure-origin-as-secure` (Edge and Brave expose the same flag at `edge://flags` and `brave://flags`), set it to **Enabled**, enter the Ignis origin in the box (for example `http://192.168.1.10:8080`; comma-separate several), and relaunch the browser.
+  - **Firefox:** in `about:config`, add the host to `dom.securecontext.allowlist` (comma-separated). Firefox may then try to upgrade sub-resource requests to HTTPS, which can break asset loading, so a reverse proxy is the more reliable option here.
+  - **Safari:** no equivalent flag, safari requires TLS.
 
 ## Setup with Docker Compose
 

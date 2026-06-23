@@ -12,7 +12,9 @@ export function registerPathResolver(matcher, resolver) {
   pathResolvers.push({ matcher, resolver });
 }
 
-export function resolvePath(path) {
+// resolved is the physical path.
+// redirected is true when a path resolver sent the request to a different path.
+export function resolvePathInfo(path) {
   const norm = normalize(path);
 
   for (const { matcher, resolver } of pathResolvers) {
@@ -21,13 +23,17 @@ export function resolvePath(path) {
         const resolved = resolver(norm);
 
         if (typeof resolved === "string" && resolved.length > 0) {
-          return resolved;
+          return { resolved, redirected: true };
         }
       }
     } catch {}
   }
 
-  return norm;
+  return { resolved: norm, redirected: false };
+}
+
+export function resolvePath(path) {
+  return resolvePathInfo(path).resolved;
 }
 
 // --- Read transforms ---

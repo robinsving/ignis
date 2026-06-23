@@ -18,7 +18,13 @@ const contentCache = new ContentCache();
 const fsPromises = createFsPromises(metadataCache, contentCache, transport);
 const fsSync = createFsSync(metadataCache, contentCache, transport);
 const fsWatch = createFsWatch(transport);
-const watcherClient = createWatcherClient(metadataCache, contentCache, fsWatch, wsClient);
+const watcherClient = createWatcherClient(
+  metadataCache,
+  contentCache,
+  fsWatch,
+  wsClient,
+  transport,
+);
 const fdOps = createFdOps(metadataCache, contentCache, transport);
 const fsCallbacks = createFsCallbacks(fsPromises);
 

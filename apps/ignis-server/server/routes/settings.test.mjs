@@ -32,6 +32,12 @@ describe("settings validate", () => {
     ).toEqual({ proxyAllowlist: ["api.example.com", "github.com"] });
   });
 
+  it("trims a valid direct-fetch host list", () => {
+    expect(
+      validate({ directFetchHosts: [" api.example.com ", "imt.example.com"] }),
+    ).toEqual({ directFetchHosts: ["api.example.com", "imt.example.com"] });
+  });
+
   it("rejects a non-array allowlist or an empty entry", () => {
     expect(() => validate({ proxyAllowlist: "x" })).toThrow();
     expect(() => validate({ proxyAllowlist: ["ok", "  "] })).toThrow();

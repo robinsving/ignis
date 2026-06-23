@@ -62,7 +62,7 @@ export class MetadataCache {
     const results = [];
     const seen = new Set();
 
-    for (const [key, meta] of this._entries) {
+    for (const key of this._entries.keys()) {
       if (prefix === "" || key.startsWith(prefix)) {
         const rest = key.slice(prefix.length);
         const slashIdx = rest.indexOf("/");
@@ -91,6 +91,11 @@ export class MetadataCache {
 
   get size() {
     return this._entries.size;
+  }
+
+  // Normalized keys of every entry, for callers that diff the cache against a fresh tree.
+  keys() {
+    return [...this._entries.keys()];
   }
 
   toStat(path) {

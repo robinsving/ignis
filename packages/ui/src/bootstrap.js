@@ -1,4 +1,5 @@
 import { vaultService } from "@ignis/services";
+import InsecureContextNotice from "./components/layout/InsecureContextNotice.svelte";
 
 function showVaultManager() {
   if (document.querySelector(".vault-manager-overlay")) return;
@@ -23,12 +24,7 @@ function showMessageDialog(title, message) {
   });
 }
 
-function showConfirmDialog(
-  title,
-  message,
-  description,
-  confirmText = "OK",
-) {
+function showConfirmDialog(title, message, description, confirmText = "OK") {
   return new Promise((resolve) => {
     const dialog = new window.IgnisUI.ConfirmDialog({
       target: document.body,
@@ -83,4 +79,29 @@ if (typeof window !== "undefined" && window.__ignis_registerUI) {
   console.warn(
     "[ignis] __ignis_registerUI not available; UI handlers not registered",
   );
+}
+
+// On a non-secure context the browser gates certain APIs causing certain features to break.
+// Show a notice about the degraded experience and how to fix it.
+function showInsecureContextNotice() {
+  if (window.isSecureContext) {
+    return;
+  }
+
+  if (document.getElementById("ignis-insecure-banner")) {
+    return;
+  }
+
+  const notice = new InsecureContextNotice({ target: document.body });
+  notice.$on("dismiss", () => notice.$destroy());
+}
+
+if (typeof window !== "undefined") {
+  if (document.body) {
+    showInsecureContextNotice();
+  } else {
+    window.addEventListener("DOMContentLoaded", showInsecureContextNotice, {
+      once: true,
+    });
+  }
 }

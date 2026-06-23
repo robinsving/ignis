@@ -50,7 +50,8 @@ If you want to contribute code:
 3. Run `npm run dev` to build and start the server
 4. Test your change in the browser with at least one vault open
 5. Run `npm test` and make sure the whole suite passes
-6. Keep PRs focused - one fix or feature per PR
+6. Run `npm run lint` and make sure it passes
+7. Keep PRs focused, one fix or feature per PR
 
 Changes to deliberate behavior (the fs shim's caching and write model, the proxy's request handling, anything documented as a design decision) start as an issue, not a PR. Open the issue first so the approach can be discussed; a patch against an undiscussed design change will be closed on this basis.
 

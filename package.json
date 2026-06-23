@@ -1,6 +1,6 @@
 {
   "name": "ignis-monorepo",
-  "version": "0.8.6",
+  "version": "0.8.7",
   "private": true,
   "description": "Monorepo for Ignis: a browser-based Obsidian client. Self-hosted server in apps/ignis-server; shim, UI, and shared libraries in packages/.",
   "workspaces": [
@@ -12,6 +12,7 @@
     "dev:server": "node apps/ignis-server/server/index.js",
     "dev": "npm run build && npm run dev:server",
     "docker:build": "node apps/ignis-server/scripts/build-image.js",
+    "lint": "oxlint packages apps/ignis-server/server --max-warnings 0 && node scripts/check-error-leaks.mjs",
     "test": "vitest run",
     "test:watch": "vitest"
   },
@@ -29,6 +30,7 @@
     "esbuild": "^0.20.0",
     "esbuild-svelte": "^0.9.4",
     "lucide-svelte": "^0.577.0",
+    "oxlint": "^1.70.0",
     "path-browserify": "^1.0.1",
     "svelte": "^4.2.20",
     "vitest": "^3.2.4"

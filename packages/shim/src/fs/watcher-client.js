@@ -2,8 +2,17 @@
 // The WebSocket itself is owned by ws-client.js; this module is a consumer.
 
 import { isRecentLocalOp } from "./echo-guard.js";
+import { normalize } from "../util/path.js";
 
-export function createWatcherClient(metadataCache, contentCache, fsWatch, wsClient) {
+const RESYNC_DEBOUNCE_MS = 1000;
+
+export function createWatcherClient(
+  metadataCache,
+  contentCache,
+  fsWatch,
+  wsClient,
+  transport,
+) {
   function handleCreated(msg) {
     const { path, stat } = msg;
 
@@ -72,6 +81,74 @@ export function createWatcherClient(metadataCache, contentCache, fsWatch, wsClie
   wsClient.subscribe("modified", handleModified);
   wsClient.subscribe("deleted", handleDeleted);
 
+  // Re-derive the cache from a freshly fetched tree after a reconnect.
+  // Each delta runs through the live-event handlers, matching live behavior.
+  function reconcile(tree) {
+    const fresh = new Set(Object.keys(tree).map(normalize));
+
+    for (const [path, meta] of Object.entries(tree)) {
+      const existing = metadataCache.get(path);
+
+      if (!existing) {
+        if (meta.type === "directory") {
+          handleFolderCreated({ path });
+        } else {
+          handleCreated({
+            path,
+            stat: { size: meta.size, mtime: meta.mtime, ctime: meta.ctime },
+          });
+        }
+      } else if (
+        meta.type === "file" &&
+        (existing.mtime !== meta.mtime || existing.size !== meta.size)
+      ) {
+        handleModified({
+          path,
+          stat: { size: meta.size, mtime: meta.mtime, ctime: meta.ctime },
+        });
+      }
+    }
+
+    // A cache key absent from the fresh tree was deleted while disconnected.
+    // The empty root key is preserved because the tree never lists it.
+    for (const key of metadataCache.keys()) {
+      if (key === "" || fresh.has(key)) {
+        continue;
+      }
+
+      handleDeleted({ path: key });
+    }
+  }
+
+  async function resync() {
+    let tree;
+
+    try {
+      tree = await transport.fetchTree();
+    } catch (e) {
+      console.warn("[shim:fs] reconnect resync failed:", e);
+      return;
+    }
+
+    reconcile(tree);
+  }
+
+  // Coalesce a burst of reconnects into a single resync once the socket settles.
+  let resyncTimer = null;
+
+  function scheduleResync() {
+    if (resyncTimer) {
+      clearTimeout(resyncTimer);
+    }
+
+    resyncTimer = setTimeout(() => {
+      resyncTimer = null;
+      resync();
+    }, RESYNC_DEBOUNCE_MS);
+  }
+
+  wsClient.onReconnect(scheduleResync);
+
   function connect(vaultId) {
     wsClient.connect(vaultId);
   }
@@ -83,5 +160,6 @@ export function createWatcherClient(metadataCache, contentCache, fsWatch, wsClie
   return {
     connect,
     disconnect,
+    reconcile,
   };
 }

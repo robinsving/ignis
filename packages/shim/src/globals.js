@@ -4,7 +4,7 @@ import {
   unregisterPopupWindow,
 } from "./electron/remote/window.js";
 import { showVaultManager } from "./ui-registry.js";
-import { isSameOrigin } from "./util/url.js";
+import { isSameOrigin, isDirectFetchHost } from "./util/url.js";
 import { proxyFetch } from "./util/proxy.js";
 
 function installProcess() {
@@ -73,6 +73,15 @@ function installBuffer() {
 function installWindowClose() {
   window.close = function () {
     console.log("[ignis] window.close() blocked");
+
+    // Obsidian's quit flow shows the progress overlay, awaits its pending save work, then calls window.close().
+    // Since we don't actually want to close the window, we clean up the progress state instead.
+    if (document.body.classList.contains("in-progress")) {
+      document.querySelector(".progress-bar-container")?.remove();
+      document.body.classList.remove("in-progress");
+      return;
+    }
+
     if (!window.__vaultConfig) {
       showVaultManager();
     }
@@ -134,7 +143,7 @@ function installFetchShim() {
       url = String(input);
     }
 
-    if (isSameOrigin(url)) {
+    if (isSameOrigin(url) || isDirectFetchHost(url)) {
       return originalFetch(input, init);
     }
 

@@ -78,7 +78,6 @@ export function createFsWatch(transport) {
     // Internal: called when transport receives a file-change event
     _dispatch(eventType, filePath) {
       const normFile = (filePath || "").replace(/^\/+/, "");
-      let matched = false;
 
       for (const [watchPath, listeners] of watchers) {
         const normWatch = (watchPath || "").replace(/^\/+/, "");
@@ -89,7 +88,6 @@ export function createFsWatch(transport) {
           normFile.startsWith(normWatch + "/");
 
         if (isMatch) {
-          matched = true;
           const relativeName =
             normWatch === ""
               ? normFile

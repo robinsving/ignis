@@ -90,9 +90,8 @@ module.exports = {
     path.join(REPO_ROOT, "investigation", "obsidian_1.12.7_unpacked"),
 
   get obsidianVersion() {
-    const assetsPath =
-      process.env.OBSIDIAN_ASSETS_PATH ||
-      path.join(__dirname, "..", "investigation", "obsidian_1.12.7_unpacked");
+    // Read from the same path the assets are served from, so the version matches what ships.
+    const assetsPath = this.obsidianAssetsPath;
     try {
       const pkg = JSON.parse(
         fs.readFileSync(path.join(assetsPath, "package.json"), "utf-8"),

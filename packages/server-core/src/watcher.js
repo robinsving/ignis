@@ -19,7 +19,7 @@ function startWatching(vaultId, vaultPath) {
       pollInterval: 100,
     },
     ignored: [
-      /(^|[\/\\])\.git([\/\\]|$)/, // .git directories
+      /(^|[/\\])\.git([/\\]|$)/, // .git directories
     ],
   });
 

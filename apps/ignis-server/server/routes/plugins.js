@@ -4,6 +4,7 @@ const {
   enablePluginForVault,
   disablePluginForVault,
 } = require("../plugin-system/manager");
+const { sanitizeError } = require("@ignis/server-core");
 
 const router = express.Router();
 
@@ -22,7 +23,7 @@ router.post("/:pluginId/enable", async (req, res) => {
     await enablePluginForVault(req.params.pluginId, vaultId);
     res.json({ ok: true });
   } catch (e) {
-    res.status(400).json({ error: e.message });
+    res.status(400).json(sanitizeError(e));
   }
 });
 
@@ -37,7 +38,7 @@ router.post("/:pluginId/disable", async (req, res) => {
     await disablePluginForVault(req.params.pluginId, vaultId);
     res.json({ ok: true });
   } catch (e) {
-    res.status(400).json({ error: e.message });
+    res.status(400).json(sanitizeError(e));
   }
 });
 

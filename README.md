@@ -30,7 +30,7 @@ Plugin compatibility depends on what APIs a plugin uses; most plugins built on O
 
 ## Variants
 
-Ignis ships currently ships as a self-hosted server but I have plans for a desktop plugin. The server variant code and Readme with details and setup instructions lives here: [`apps/ignis-server/`](apps/ignis-server/)
+Ignis currently ships as a self-hosted server but I have plans for a desktop plugin. The server variant code and Readme with details and setup instructions lives here: [`apps/ignis-server/`](apps/ignis-server/)
 
 ## What works
 
@@ -41,8 +41,10 @@ Ignis ships currently ships as a self-hosted server but I have plans for a deskt
 - Mobile UI auto-activates when the window is under 600 px wide.
 - Themes and CSS snippets.
 - Most community plugins built on Obsidian's plugin API.
-- Cross-origin plugin requests via `requestUrl` and `fetch`, proxied through the server.
+- Cross-origin plugin requests via `requestUrl` and `fetch`, proxied through the server, or fetched directly for allowlisted CORS-friendly hosts.
 - Obsidian Sync, in self-hosted deployments with a logged-in browser tab open.
+
+**Full functionality requires a secure context (HTTPS, or `localhost`).** Over plain HTTP at a non-localhost origin the browser disables the crypto and clipboard APIs Obsidian needs, breaking graph view, the outline, Sync, and more; Ignis shows a banner. Fix it with HTTPS (a TLS reverse proxy or `tailscale serve`), or for LAN access without TLS, the browser's insecure-origin flag (`#unsafely-treat-insecure-origin-as-secure` in Chromium). See [Secure context (HTTPS)](apps/ignis-server/README.md#secure-context-https).
 
 ## What doesn't work
 
@@ -75,6 +77,7 @@ Compatibility for specific community plugins is tracked in [Issue #9](https://gi
 - Adds a plugin system inside the server itself, separate from Obsidian's community plugin system (WIP).
 - Ignis-specific settings appear as their own tabs inside Obsidian's Settings modal.
 - Server runtime settings (cache sizes, request body limit, etc.) are configurable from the Ignis settings panel.
+- A direct-fetch host allowlist for CORS-friendly hosts the browser fetches directly, bypassing the proxy.
 - Status bar indicators surface server state and headless sync activity.
 
 ## Roadmap

@@ -6,16 +6,19 @@ import {
   resolveWorkspaceName,
   loadPresetIfRequested,
   initWorkspacePatch,
+  isValidWorkspaceName,
 } from "./workspace.js";
 import { prefetchVaultContent } from "./fs/indexer-prefetch.js";
 import { setInputCacheLimits } from "./fs/input-cache.js";
+import { setDirectFetchHosts } from "./util/url.js";
 import { autoTrustDemoVaults, maybeProvisionDemoVault } from "./demo.js";
 import { initNativeMenuGuard } from "./native-menu-guard.js";
 
 let bootstrapVirtualPlugins = [];
 
-// Cache sizes come from the bootstrap response and are applied at page load.
-// The server owns the rest of the settings and applies them on its side.
+// Settings the client must act on come from the bootstrap response and are applied at page load.
+// This includes cache sizes, and the hosts the browser fetches directly instead of via the proxy.
+// The server owns and enforces the rest.
 function applyServerSettings(s) {
   if (!s) {
     return;
@@ -26,6 +29,7 @@ function applyServerSettings(s) {
   }
 
   setInputCacheLimits({ maxSize: s.inputCacheBytes, ttlMs: s.inputCacheTtlMs });
+  setDirectFetchHosts(s.directFetchHosts);
 }
 
 export function getBootstrapVirtualPlugins() {
@@ -36,7 +40,9 @@ function resolveVaultId() {
   const urlParams = new URLSearchParams(window.location.search);
   window.__currentVaultId =
     urlParams.get("vault") || localStorage.getItem("last-vault") || "";
-  window.__workspaceName = urlParams.get("workspace") || "";
+
+  const workspace = urlParams.get("workspace") || "";
+  window.__workspaceName = isValidWorkspaceName(workspace) ? workspace : "";
 }
 
 // Single round-trip bootstrap: vault info + vault list + metadata tree + plugins.
@@ -116,7 +122,7 @@ function initVaultConfigFallback() {
 function initVaultListFallback() {
   try {
     vaultService.listVaultsSync();
-  } catch (e) {
+  } catch {
     window.__vaultList = [];
   }
 }
@@ -171,8 +177,7 @@ function applyCoreSyncGuard(plugins) {
       return data;
     }
 
-    let text =
-      typeof data === "string" ? data : new TextDecoder().decode(data);
+    let text = typeof data === "string" ? data : new TextDecoder().decode(data);
 
     try {
       const config = JSON.parse(text);
@@ -208,15 +213,38 @@ function initCoreSyncGuardFallback() {
   }
 }
 
+// Reflect the priority prefetch's byte progress on the boot splash so the awaited slice reads as active rather than hung.
+// The splash logo keeps pulsing through a transit stall, when the byte count would otherwise freeze.
+function updateBootProgress(received, total) {
+  // Once the injector starts appending Obsidian's scripts it owns the splash label, so stop writing progress over it.
+  if (window.__ignisBootStarted) {
+    return;
+  }
+
+  const label = document.getElementById("ignis-status-label");
+
+  if (!label || !total) {
+    return;
+  }
+
+  const mb = (n) => (n / (1024 * 1024)).toFixed(1);
+  label.textContent = `Loading plugins... ${mb(received)}/${mb(total)} MB`;
+}
+
+// Resolve the active workspace and snapshot the appearance config.
+function resolveWorkspaceAndAppearance() {
+  resolveWorkspaceName();
+  loadPresetIfRequested();
+  initNativeMenuGuard();
+}
+
 export function initialize() {
   if (maybeProvisionDemoVault()) {
+    window.__ignisBootReady = Promise.resolve();
     return;
   }
 
   resolveVaultId();
-  resolveWorkspaceName();
-  loadPresetIfRequested();
-  initNativeMenuGuard(window.__currentVaultId);
 
   const bootstrap = fetchBootstrap();
 
@@ -229,18 +257,26 @@ export function initialize() {
     bootstrapVirtualPlugins = bootstrap.virtualPlugins || [];
     applyServerSettings(bootstrap.settings);
 
-    // Race the indexer: batch-fetch text content into ContentCache so
-    // Obsidian's startup indexing reads hit the cache instead of the network.
-    prefetchVaultContent(
+    // Warm the caches before Obsidian boots.
+    // The priority slice (configs and plugin entry files) resolves window.__ignisBootReady, which the index.html injector waits on before appending Obsidian's scripts, so Obsidian's early reads hit the cache.
+    // The bulk slice streams afterward without blocking boot.
+    const { priority } = prefetchVaultContent(
       window.__currentVaultId,
       bootstrap.tree,
       fsShim._contentCache,
+      { onProgress: updateBootProgress },
     );
+
+    // Chain workspace/appearance resolution onto readiness so its config reads hit the warm priority slice instead of the network.
+    window.__ignisBootReady = priority.then(resolveWorkspaceAndAppearance);
   } else {
     initVaultConfigFallback();
     initVaultListFallback();
     initMetadataCacheFallback();
     initCoreSyncGuardFallback();
+    // No prefetch on the fallback path, so resolve directly; the reads fall through to the network.
+    resolveWorkspaceAndAppearance();
+    window.__ignisBootReady = Promise.resolve();
   }
 
   installRequestUrlShim();

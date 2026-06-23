@@ -19,6 +19,18 @@ function vaultId() {
   return window.__currentVaultId || "";
 }
 
+const KEEPALIVE_MAX_BYTES = 64 * 1024;
+
+// keepalive lets a request finish after the page starts unloading.
+// Its body is capped at 64KB across a shared pool, so opt in only under that limit.
+function withinKeepaliveCap(body) {
+  if (!body) {
+    return true;
+  }
+
+  return new TextEncoder().encode(body).length <= KEEPALIVE_MAX_BYTES;
+}
+
 async function request(method, endpoint, params = {}) {
   const url = new URL(API_BASE + endpoint, window.location.origin);
 
@@ -35,6 +47,11 @@ async function request(method, endpoint, params = {}) {
   } else {
     options.headers = { "Content-Type": "application/json" };
     options.body = JSON.stringify({ vault: vaultId(), ...params });
+  }
+
+  // A write (POST/DELETE) opts into keepalive so a page dismissal does not drop it.
+  if (method !== "GET" && withinKeepaliveCap(options.body)) {
+    options.keepalive = true;
   }
 
   const res = await fetch(url.toString(), options);

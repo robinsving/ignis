@@ -44,11 +44,11 @@ The shim layer makes Obsidian think it's running in Electron. The bridge adds Ig
 
 ### Loading
 
-The server serves its own `index.html` (in `apps/ignis-server/server/assets/`) rather than Obsidian's. At startup it reads Obsidian's `index.html` once to discover which scripts Obsidian expects, then embeds that list in our HTML as a JSON array. The client-side HTML loads the shim loader and UI bundle first (non-deferred), then a small inline script dynamically injects Obsidian's scripts in order. Obsidian's files are never modified on disk, or transformed in transit.
+The server serves its own `index.html` (in `apps/ignis-server/server/assets/`) rather than Obsidian's. At startup it reads Obsidian's `index.html` once to discover which scripts Obsidian expects, then embeds that list in our HTML as a JSON array. The client-side HTML loads the shim loader and UI bundle first (non-deferred), then a small inline script dynamically injects Obsidian's scripts in order. The injected asset URLs (`app.js`, `app.css`, `lib/*`) are versioned by the pinned Obsidian version and served immutable, so the browser and any CDN edge hold the bundle across loads instead of re-pulling it. Obsidian's files are never modified on disk, or transformed in transit.
 
 Before injecting Obsidian's scripts, the shim loader sets `localStorage.EmulateMobile` based on viewport width (< 600px) so Obsidian boots into its mobile UI on phones and narrow windows. The loader replaces the module system, then issues a single blocking bootstrap request that returns the vault info, vault list, metadata tree, and Ignis plugin list in one pre-compressed response. The request has to be blocking because Obsidian makes synchronous filesystem calls during page load, before the event loop is running, so the cache has to already be populated.
 
-Immediately after the bootstrap response is applied, the client kicks off a batched pre-fetch of text file content into the ContentCache (`POST /api/fs/batch-read`). This races Obsidian's indexer so the first wave of `readFile` calls during startup indexing tend to hit the cache instead of the network.
+Immediately after the bootstrap response is applied, the client prefetches file content into the ContentCache (`POST /api/fs/batch-read`), split into two slices. A priority slice (the `.obsidian` root configs plus each plugin's `main.js`, `manifest.json`, and `styles.css`) is awaited before Obsidian's scripts are injected, so Obsidian's synchronous boot reads hit the cache rather than the network. A bulk slice of the remaining text content streams afterward without blocking boot. The boot splash reflects prefetch progress.
 
 ### Modules
 
@@ -58,7 +58,7 @@ Immediately after the bootstrap response is applied, the client kicks off a batc
 | `path`               | path-browserify                                                                                 |
 | `url`                | Browser URL API wrapper                                                                         |
 | `process`            | Platform/version stubs                                                                          |
-| `crypto`             | `randomBytes`, `randomUUID`, `scrypt` use Web Crypto. `createHash` produces real digests for SHA-1/SHA-256/SHA-512/MD5 via `@noble/hashes`. |
+| `crypto`             | `randomBytes`, `randomUUID`, `scrypt` use Web Crypto. `createHash` produces real digests for SHA-1/SHA-256/SHA-512/MD5 via `@noble/hashes`. Web Crypto needs a secure context; on plain HTTP at a non-localhost origin it is unavailable and the UI shows an insecure-context banner. |
 | `electron`           | `ipcRenderer` dispatcher, `webFrame` stubs, `clipboard`, `nativeImage`, `safeStorage` (passthrough, reports unavailable). |
 | `@electron/remote`   | Partial: `clipboard`, `shell`, `dialog` (with a sync file picker workaround), `Menu`, `BrowserWindow`, `nativeTheme`, `session`, `systemPreferences`, `screen`, `nativeImage`, `Notification`, `app`. |
 | `zlib`               | Sync + callback variants via pako (`deflate`, `inflate`, `gzip`, `gunzip`, raw). Streaming classes (`createGzip` etc.) throw. |
@@ -97,13 +97,13 @@ All hooks are synchronous and registered at module load. They fire once at the s
 
 Electron's `ipcRenderer` is the renderer's channel to the main process for things only that process can do: looking up the active vault, opening a new vault window, performing cross-origin requests, printing to PDF. Ignis has no main process, so the shim is an in-process router that returns values for sync calls and fires side effects for async ones.
 
-Sync channels covered include `vault`, `version`, `vault-list`, `vault-open`, `vault-remove`, `file-url`, `starter`, and `help`. Each maps to a handler that returns immediately. Async channels: `request-url` is routed to the CORS proxy, `print-to-pdf` triggers a hidden popup iframe, `context-menu` replies on the next tick. The standard `on`/`once`/`removeListener` interface works as it would in Electron.
+Sync channels covered include `vault`, `version`, `vault-list`, `vault-open`, `vault-remove`, `file-url`, `starter`, and `help`. Each maps to a handler that returns immediately. Async channels: `request-url` is routed to the CORS proxy (or fetched directly when the host is on the direct-fetch allowlist), `print-to-pdf` triggers a hidden popup iframe, `context-menu` replies on the next tick. The standard `on`/`once`/`removeListener` interface works as it would in Electron.
 
 ### Cross-origin requests
 
 Obsidian on the desktop can make arbitrary cross-origin HTTP requests because it runs as an Electron app rather than a sandboxed browser context. In a browser tab, the same requests would be blocked by CORS or rejected by the same-origin policy. Plugin installs from GitHub, theme asset downloads, calls to third-party APIs: all of it assumes cross-origin is available.
 
-The shim handles this transparently. `window.fetch` and `window.requestUrl` are intercepted. Same-origin requests pass through unchanged. Cross-origin requests are POSTed to `/api/proxy`, which performs the outbound call from the server with headers that mimic Obsidian's desktop runtime: `Origin: app://obsidian.md` and the browser's own User-Agent. The response body is returned base64-encoded so binary content survives the JSON round-trip; the shim decodes it and hands the caller a normal `Response` or `requestUrl` result.
+The shim handles this transparently. `window.fetch` and `window.requestUrl` are intercepted. Same-origin requests pass through unchanged, as do requests to hosts on the user-configured direct-fetch allowlist, which the browser fetches directly subject to its own CORS enforcement. All other cross-origin requests are POSTed to `/api/proxy`, which performs the outbound call from the server with headers that mimic Obsidian's desktop runtime: `Origin: app://obsidian.md` and the browser's own User-Agent. The response body is returned base64-encoded so binary content survives the JSON round-trip; the shim decodes it and hands the caller a normal `Response` or `requestUrl` result.
 
 The proxy itself is intentionally generic. It forwards method, headers, and body verbatim and returns whatever the upstream sent. It always rejects requests whose hostname resolves to a private, loopback, or link-local address (SSRF guard). Outbound access is governed by `proxyMode`: `any` (the default) reaches any public host, `allowlist` restricts to a configured host list, and `disabled` blocks all proxying; demo mode pins it to `allowlist`. Under the default `any`, the proxy is an open relay to public hosts, which is one of the reasons the server needs to be behind authentication when exposed to the internet.
 
@@ -141,12 +141,12 @@ An Express server that handles filesystem operations, vault management, static f
 - `/api/bootstrap` - one-shot cold-start endpoint; returns vault info + list + metadata tree + plugin list as a single pre-compressed response, cached per vault with mtime-based invalidation.
 - `/api/proxy` - cross-origin HTTP proxy used by the fetch and requestUrl shims.
 - `/api/version` - Ignis version (SemVer), per-build identifier, and pinned Obsidian version.
-- `/api/settings/*` - read and update runtime server settings (cache sizes, request body limit, write-coalesce window, proxy mode and allowlist).
+- `/api/settings/*` - read and update runtime server settings (cache sizes, request body limit, write-coalesce window, proxy mode and allowlist, direct-fetch host allowlist).
 - `/api/plugins/*` - Ignis plugin management (list, enable, disable). __WIP__
 - `/api/ext/:pluginId/*` - routes registered by individual Ignis plugins.
 - `/vault-files/<vaultId>/<path>` - static file serving rooted at a vault, used by Obsidian for image/attachment resource URLs.
 
-**WebSocket:** A file watcher monitors vault directories and pushes change events to connected clients, keeping the client-side metadata and content caches in sync. An echo guard suppresses events caused by the same client's recent writes so they don't bounce back. The watcher also carries plugin-defined message types (e.g. headless-sync status broadcasts).
+**WebSocket:** A file watcher monitors vault directories and pushes change events to connected clients, keeping the client-side metadata and content caches in sync. An echo guard suppresses events caused by the same client's recent writes so they don't bounce back. A ping/pong heartbeat keeps connections alive through idle-timeout proxies and terminates any that stop responding; after a reconnect the client reconciles its metadata cache so file events missed while the socket was down are recovered. The watcher also carries plugin-defined message types (e.g. headless-sync status broadcasts).
 
 **Legacy bridge cleanup:** Earlier versions installed the bridge into each vault's `.obsidian/plugins/`. The bridge is now bundled into the shim and loaded client-side, so on startup the server removes any leftover on-disk `ignis-bridge` install from each vault (and strips it from `community-plugins.json`).
 

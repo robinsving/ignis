@@ -5,6 +5,7 @@ const {
   encodeContentDispositionFilename,
   resolveVaultPath,
 } = require("./path-utils");
+const { sanitizeError } = require("./errors");
 
 module.exports = {
   writeCoalescer,
@@ -12,4 +13,5 @@ module.exports = {
   setupWebSocket,
   encodeContentDispositionFilename,
   resolveVaultPath,
+  sanitizeError,
 };

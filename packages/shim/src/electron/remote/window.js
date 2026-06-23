@@ -148,6 +148,8 @@ const currentWebContents = {
 
   executeJavaScript(code) {
     try {
+      // executeJavaScript runs a code string in the page context; eval performs that execution.
+      // eslint-disable-next-line no-eval
       return Promise.resolve(eval(code));
     } catch (e) {
       return Promise.reject(e);
@@ -208,7 +210,6 @@ const currentWebContents = {
       .read()
       .then(async (items) => {
         const dt = new DataTransfer();
-        let hasFiles = false;
 
         for (const item of items) {
           for (const type of item.types) {
@@ -222,7 +223,6 @@ const currentWebContents = {
               dt.items.add(
                 new File([blob], `pasted-image.${ext}`, { type }),
               );
-              hasFiles = true;
             }
           }
         }
@@ -309,6 +309,8 @@ export function registerPopupWindow() {
     },
     executeJavaScript(code) {
       try {
+        // executeJavaScript runs a code string in the page context; eval performs that execution.
+        // eslint-disable-next-line no-eval
         return Promise.resolve(eval(code));
       } catch (e) {
         return Promise.reject(e);

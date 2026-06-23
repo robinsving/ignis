@@ -19,6 +19,8 @@ docker compose up -d
 
 The bundled [`docker-compose.yml`](docker-compose.yml) builds Ignis from the parent directory, mounts a 20 MB tmpfs at `/vaults`, and configures the demo limits. Adjust the env vars below for your own deployment.
 
+The compose file serves plain HTTP on `:8080`. Any networked deployment must be fronted by HTTPS (a TLS reverse proxy, `tailscale serve`, etc.) or core obsidian features (graph view, the outline, clipboard, Sync) are disabled and a warning banner is shown; the public demo works because it sits behind HTTPS. Accessing it over `localhost` works since localhost over HTTP is considered a trusted origin by browsers.
+
 ## Demo environment variables
 
 | Variable | Description | Default |

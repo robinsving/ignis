@@ -2,6 +2,30 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.8.7] - Karm (2026-06-19)
+
+### Added
+
+- Direct-fetch host allowlist: hosts the browser fetches directly instead of through the cross-origin proxy, for CORS-friendly hosts.
+- Insecure-context banner: warns when Ignis is served over plain HTTP at a non-localhost origin, where the browser disables crypto and clipboard APIs.
+
+### Changed
+
+- Boot prefetch warms the cache before Obsidian boots; Obsidian's static assets are served immutable.
+- WebSocket heartbeat keeps live-sync connections alive through idle proxies, and the client resyncs its cache on reconnect.
+- Small writes use `fetch` keepalive to survive page dismissal.
+
+### Fixed
+
+- Missing reads are answered from the cache instead of round-tripping.
+- A blocked `window.close()` no longer strands the user on Obsidian's "Saving..." overlay.
+- `mkdir`/`rmdir` resolve their path like other filesystem operations.
+
+### Security
+
+- Server error responses no longer include absolute server paths.
+- `?workspace=` is validated; zip export skips symlinks; demo-mode vault names and quotas are enforced.
+
 ## [0.8.6] - Karm (2026-06-12)
 
 ### Added

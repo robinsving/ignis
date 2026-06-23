@@ -63,7 +63,7 @@ async function initPlugins(ctx) {
 async function shutdownPlugins() {
   console.log("[plugins] Shutting down all plugins...");
 
-  for (const [pluginId, loaded] of loadedPlugins) {
+  for (const loaded of loadedPlugins.values()) {
     if (loaded.shutdown) {
       try {
         console.log(`[plugins] Shutting down: ${loaded.name}`);
