@@ -32,6 +32,7 @@ done
 
 OBSIDIAN_DIR="/app/obsidian-app"
 OBSIDIAN_VERSION="${OBSIDIAN_VERSION:-1.12.7}"
+OBSIDIAN_STAMP="$OBSIDIAN_DIR/.obsidian-version"
 
 warn_obsidian_version() {
   if [ -n "$1" ] && [ "$1" != "$OBSIDIAN_VERSION" ]; then
@@ -39,7 +40,18 @@ warn_obsidian_version() {
   fi
 }
 
-if [ ! -f "$OBSIDIAN_DIR/index.html" ]; then
+installed_version=""
+if [ -f "$OBSIDIAN_STAMP" ]; then
+  installed_version="$(cat "$OBSIDIAN_STAMP")"
+fi
+
+if [ ! -f "$OBSIDIAN_DIR/index.html" ] || [ "$installed_version" != "$OBSIDIAN_VERSION" ]; then
+  # The directory holds a different Obsidian version than the pin, so clear it before reinstalling.
+  if [ -f "$OBSIDIAN_DIR/index.html" ]; then
+    echo "[ignis] Obsidian ${installed_version:-unknown} is installed, but this build is pinned to v${OBSIDIAN_VERSION}. Reinstalling..."
+    find "$OBSIDIAN_DIR" -mindepth 1 -delete
+  fi
+
   if [ -n "$OBSIDIAN_PACKAGE" ]; then
     # Offline / restricted networks: unpack an operator-supplied package instead of downloading.
     if [ ! -f "$OBSIDIAN_PACKAGE" ]; then
@@ -47,7 +59,7 @@ if [ ! -f "$OBSIDIAN_DIR/index.html" ]; then
       exit 1
     fi
 
-    echo "[ignis] First run. Unpacking local Obsidian package: $OBSIDIAN_PACKAGE"
+    echo "[ignis] Unpacking local Obsidian package: $OBSIDIAN_PACKAGE"
 
     case "$OBSIDIAN_PACKAGE" in
       *.deb)
@@ -75,7 +87,7 @@ if [ ! -f "$OBSIDIAN_DIR/index.html" ]; then
         ;;
     esac
   else
-    echo "[ignis] First run. Downloading Obsidian v${OBSIDIAN_VERSION}..."
+    echo "[ignis] Downloading Obsidian v${OBSIDIAN_VERSION}..."
 
     curl -fSL "https://github.com/obsidianmd/obsidian-releases/releases/download/v${OBSIDIAN_VERSION}/obsidian-${OBSIDIAN_VERSION}.asar.gz" \
       -o /tmp/obsidian.asar.gz
@@ -92,9 +104,10 @@ if [ ! -f "$OBSIDIAN_DIR/index.html" ]; then
     exit 1
   fi
 
+  echo "$OBSIDIAN_VERSION" > "$OBSIDIAN_STAMP"
   echo "[ignis] Obsidian ready (v${OBSIDIAN_VERSION})."
 else
-  echo "[ignis] Obsidian already set up."
+  echo "[ignis] Obsidian already set up (v${OBSIDIAN_VERSION})."
 fi
 
 

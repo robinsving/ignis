@@ -125,9 +125,16 @@ Each subdirectory of `/vaults` is treated as a separate vault, so dropping in an
 
 ## Upgrading Obsidian
 
-Obsidian releases can include changes that break the compatibility shim. Each Ignis release pins a known-working Obsidian version through the `OBSIDIAN_VERSION` env var, so the recommended path is to wait for an Ignis release that bumps the version, pull the new image, and restart.
+Obsidian releases can include changes that break the compatibility shim, so each Ignis release pins a known-working Obsidian version through the `OBSIDIAN_VERSION` env var. The recommended path is to wait for an Ignis release that bumps the pin, then pull the new image and recreate the container:
 
-If you want to try a newer Obsidian version before Ignis updates, set `OBSIDIAN_VERSION` in your compose file. The entrypoint will download that version on next start, but there is no guarantee it will work cleanly with the current shim.
+```bash
+docker compose pull
+docker compose up -d
+```
+
+When the pinned version changes, Ignis re-downloads Obsidian on the next start, so the cached copy in the `obsidian-app` volume is replaced automatically.
+
+To try a newer Obsidian before an Ignis release pins it, set `OBSIDIAN_VERSION` in your compose file. It is downloaded on the next start, with no guarantee it works cleanly against the current shim.
 
 ## Backups
 
