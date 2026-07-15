@@ -11,6 +11,13 @@ export default defineConfig({
       title: "Ignis",
       logo: { src: "./src/assets/ignis.png" },
       favicon: "/favicon.png",
+      social: [
+        {
+          icon: "github",
+          label: "GitHub",
+          href: "https://github.com/Nystik-gh/ignis",
+        },
+      ],
       customCss: ["./src/styles/theme.css"],
       components: {
         // Preload the fonts

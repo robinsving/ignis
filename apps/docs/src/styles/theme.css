@@ -158,6 +158,23 @@ html {
   margin-inline-start: auto;
 }
 
+/* Social links */
+.ignis-actions > a {
+  color: var(--sl-color-gray-3);
+  margin: 0;
+  margin-inline-end: 0.5rem;
+}
+
+.ignis-actions > a:hover {
+  color: var(--sl-color-gray-1);
+  opacity: 1;
+}
+
+.ignis-actions > a svg {
+  width: 20px;
+  height: 20px;
+}
+
 @media (max-width: 72rem) {
   .ignis-meta {
     display: none;

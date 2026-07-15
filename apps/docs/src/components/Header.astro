@@ -2,6 +2,7 @@
 import { readFileSync, existsSync } from "node:fs";
 import path from "node:path";
 import Search from "@astrojs/starlight/components/Search.astro";
+import SocialIcons from "@astrojs/starlight/components/SocialIcons.astro";
 import ThemeSelect from "@astrojs/starlight/components/ThemeSelect.astro";
 import MobileMenuToggle from "@astrojs/starlight/components/MobileMenuToggle.astro";
 import logo from "../assets/ignis.png";
@@ -73,6 +74,7 @@ const home = import.meta.env.BASE_URL;
   </dl>
 
   <div class="ignis-actions">
+    <SocialIcons />
     <Search />
     <ThemeSelect />
     <MobileMenuToggle />

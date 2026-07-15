@@ -87,6 +87,26 @@ On a read-only or NFS `root_squash` mount, Ignis cannot set ownership itself, so
 - Make the `PUID`/`PGID` user the owner of the folders on the host.
 - Export the NFS share with `no_root_squash`.
 
+### Vaults on other mounts
+
+To include a vault stored elsewhere on the host, such as on a NAS mount, mount the folder into `/vaults` directly:
+
+```yaml
+    volumes:
+      - ./vaults:/vaults
+      - /mnt/nas/MyVault:/vaults/MyVault
+```
+
+Symlinks inside the vaults folder are followed only if the link target exists inside the container. Mount the target at the same path it has on the host:
+
+```yaml
+    volumes:
+      - ./vaults:/vaults # contains symlink: MyVault -> /mnt/nas/Obsidian/MyVault
+      - /mnt/nas/Obsidian:/mnt/nas/Obsidian
+```
+
+The startup log lists the vaults that were found. A folder that could not be read is skipped, with a `[config] Skipping unreadable vault entry` line giving the reason.
+
 ### Offline install
 
 If the container cannot reach the internet on first run, you can download the Obsidian `.deb` from [obsidian.md](https://obsidian.md/download) manually, mount it, and point `OBSIDIAN_PACKAGE` at it:
