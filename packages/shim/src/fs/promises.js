@@ -19,6 +19,7 @@ import {
 import { hasVirtualFile, getVirtualFile } from "./virtual-files.js";
 import { realpathSync } from "./realpath.js";
 import { initWriteDurability, onFailure } from "./write-durability.js";
+import { createUtimes } from "./utimes.js";
 
 export function createFsPromises(metadataCache, contentCache, transport) {
   initWriteCoalescer(transport);
@@ -29,6 +30,8 @@ export function createFsPromises(metadataCache, contentCache, transport) {
   onFailure((failedPath) => {
     contentCache.invalidate(failedPath);
   });
+
+  const commitUtimes = createUtimes(metadataCache, transport);
 
   return {
     async stat(path) {
@@ -306,18 +309,7 @@ export function createFsPromises(metadataCache, contentCache, transport) {
     },
 
     async utimes(path, atime, mtime) {
-      const resolved = resolvePath(path);
-      const meta = metadataCache.get(resolved);
-
-      if (meta) {
-        meta.mtime = typeof mtime === "number" ? mtime : mtime.getTime();
-        metadataCache.set(resolved, meta);
-      }
-
-      // mtime is non-critical, so flush it in the background instead of awaiting.
-      transport.utimes(resolved, atime, mtime).catch((e) => {
-        console.error("[shim:fs] utimes background flush failed:", resolved, e);
-      });
+      commitUtimes(path, atime, mtime);
     },
 
     async chmod() {
