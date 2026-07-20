@@ -142,8 +142,29 @@ describe("sync fs mutations", () => {
 
     fs.utimesSync("note.md", 111, 222);
 
-    expect(deps.store.get(key).mtime).toBe(222);
-    expect(deps.transport.utimes).toHaveBeenCalled();
+    expect(deps.store.get(key).mtime).toBe(222000);
+    expect(deps.transport.utimes).toHaveBeenCalledWith(key, 111000, 222000);
+  });
+
+  it("utimesSync converts a Date argument to milliseconds", () => {
+    const deps = makeDeps();
+    const fs = createFsSync(
+      deps.metadataCache,
+      deps.contentCache,
+      deps.transport,
+    );
+    const key = resolvePath("note.md");
+    deps.store.set(key, { type: "file", mtime: 0 });
+
+    const when = new Date(1783339200000);
+    fs.utimesSync("note.md", when, when);
+
+    expect(deps.store.get(key).mtime).toBe(1783339200000);
+    expect(deps.transport.utimes).toHaveBeenCalledWith(
+      key,
+      1783339200000,
+      1783339200000,
+    );
   });
 });
 

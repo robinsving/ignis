@@ -8,8 +8,11 @@ import {
 } from "./transforms.js";
 import { hasVirtualFile, getVirtualFile } from "./virtual-files.js";
 import { trackWrite } from "./write-durability.js";
+import { createUtimes } from "./utimes.js";
 
 export function createFsSync(metadataCache, contentCache, transport) {
+  const commitUtimes = createUtimes(metadataCache, transport);
+
   return {
     existsSync(path) {
       if (isInputCachePath(path) && inputCacheGet(path) !== null) {
@@ -340,21 +343,7 @@ export function createFsSync(metadataCache, contentCache, transport) {
     },
 
     utimesSync(path, atime, mtime) {
-      const resolved = resolvePath(path);
-      const meta = metadataCache.get(resolved);
-
-      if (meta) {
-        meta.mtime = typeof mtime === "number" ? mtime : mtime.getTime();
-        metadataCache.set(resolved, meta);
-      }
-
-      transport.utimes(resolved, atime, mtime).catch((e) => {
-        console.error(
-          "[shim:fs] utimesSync background utimes failed:",
-          resolved,
-          e,
-        );
-      });
+      commitUtimes(path, atime, mtime);
     },
 
     chmodSync() {
