@@ -2,6 +2,28 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.8.14] - Karm (2026-09-27)
+
+### Fixed
+
+- Vaults with pop-out windows in their saved layout no longer break on load.
+- Zoom handled properly.
+
+## [0.8.13] - Karm (2026-09-25)
+
+### Changed
+
+- Obsidian pinned at 1.13.7.
+- `OBSIDIAN_VERSION` and `OBSIDIAN_PACKAGE` only accept the pinned Obsidian version or newer.
+- Ignis and Headless Sync settings tabs render without a loading step.
+- Settings reopen on the last viewed Ignis tab.
+
+## [0.8.12] - Karm (2026-09-21)
+
+### Fixed
+
+- "Always trust plugins" setting is now applied consistently in fresh browsers.
+
 ## [0.8.11] - Karm (2026-09-19)
 
 ### Added

@@ -5,6 +5,7 @@ const config = require("./config");
 const settings = require("./settings");
 const { cacheControlFor } = require("./static/cache-headers");
 const { buildIndexHtml } = require("./static/index-html");
+const { getObsidianTerms } = require("./static/obsidian-terms");
 const {
   setupWebSocket,
   watcher,
@@ -188,6 +189,8 @@ const server = app.listen(config.port, async () => {
   console.log(`[ignis] Server running on http://localhost:${config.port}`);
   console.log(`[ignis] Vault root: ${config.vaultRoot}`);
   console.log(`[ignis] Vaults: ${Object.keys(config.vaults).join(", ")}`);
+
+  getObsidianTerms();
 
   await initPlugins({ app, config, wss, watcher });
 
