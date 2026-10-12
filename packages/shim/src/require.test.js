@@ -30,4 +30,15 @@ describe("window.require", () => {
     expect(process.cwd()).toBe("/");
     expect(process.platform).toBe("linux");
   });
+
+  it("resolves fs/promises and node:fs/promises to fs.promises", () => {
+    const promises = window.require("fs").promises;
+
+    for (const name of ["fs/promises", "node:fs/promises"]) {
+      const required = window.require(name);
+
+      expect(required.readFile).toBe(promises.readFile);
+      expect(required.writeFile).toBe(promises.writeFile);
+    }
+  });
 });

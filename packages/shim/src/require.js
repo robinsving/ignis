@@ -22,6 +22,7 @@ const rawRegistry = {
   "@electron/remote": remoteShim,
   "original-fs": fsShim,
   fs: fsShim,
+  "fs/promises": fsShim.promises,
   path: pathShim,
   url: urlShim,
   crypto: cryptoShim,
